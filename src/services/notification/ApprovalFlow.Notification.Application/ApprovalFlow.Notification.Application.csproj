@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ApprovalFlow.Notification.Domain/ApprovalFlow.Notification.Domain.csproj" />
+    <ProjectReference Include="../../../shared/ApprovalFlow.Contracts/ApprovalFlow.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>
