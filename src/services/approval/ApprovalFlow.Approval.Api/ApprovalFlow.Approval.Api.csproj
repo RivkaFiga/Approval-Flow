@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Dapr.AspNetCore" Version="1.14.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../ApprovalFlow.Approval.Application/ApprovalFlow.Approval.Application.csproj" />
     <ProjectReference Include="../ApprovalFlow.Approval.Infrastructure/ApprovalFlow.Approval.Infrastructure.csproj" />
     <ProjectReference Include="../../../shared/ApprovalFlow.Contracts/ApprovalFlow.Contracts.csproj" />

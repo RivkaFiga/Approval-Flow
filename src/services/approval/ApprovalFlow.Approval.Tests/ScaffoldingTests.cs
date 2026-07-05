@@ -2,10 +2,14 @@ using Xunit;
 
 namespace ApprovalFlow.Approval.Tests;
 
+/// <summary>
+/// Placeholder retained only so the scaffolding survives a project regeneration; the meaningful behaviour
+/// tests live alongside — see <c>WorkflowDeciderTests</c> and <c>HandleDecisionMadeServiceTests</c>.
+/// </summary>
 public class ScaffoldingTests
 {
-    [Fact(Skip = "Placeholder — replace with real tests as the Approval service is implemented.")]
-    public void Placeholder()
+    [Fact]
+    public void Scaffolding_present()
     {
     }
 }
