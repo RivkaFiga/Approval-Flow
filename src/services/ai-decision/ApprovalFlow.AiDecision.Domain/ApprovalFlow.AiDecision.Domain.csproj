@@ -6,5 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../../../shared/ApprovalFlow.Contracts/ApprovalFlow.Contracts.csproj" />
+  </ItemGroup>
 
 </Project>

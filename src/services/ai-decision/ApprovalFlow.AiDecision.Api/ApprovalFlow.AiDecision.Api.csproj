@@ -7,6 +7,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Dapr.AspNetCore" Version="1.14.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../ApprovalFlow.AiDecision.Application/ApprovalFlow.AiDecision.Application.csproj" />
     <ProjectReference Include="../ApprovalFlow.AiDecision.Infrastructure/ApprovalFlow.AiDecision.Infrastructure.csproj" />
     <ProjectReference Include="../../../shared/ApprovalFlow.Contracts/ApprovalFlow.Contracts.csproj" />
