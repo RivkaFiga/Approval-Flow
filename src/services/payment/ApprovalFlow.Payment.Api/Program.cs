@@ -1,6 +1,7 @@
 using ApprovalFlow.Payment.Infrastructure;
 using ApprovalFlow.Payment.Infrastructure.Persistence;
 using ApprovalFlow.ServiceDefaults.Extensions;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,10 +18,13 @@ app.UseCloudEvents();
 app.MapSubscribeHandler();
 app.MapControllers();
 
-// Idempotent seeding of department budgets into the Dapr state store on cold start (§7 in policy.md).
-// The seeder skips departments that already carry a balance, so a mid-flight restart cannot clobber state.
+// Apply EF migrations for the append-only payment ledger (§8, §11), then bootstrap the department budgets
+// into Dapr state (§7 in policy.md). Both are idempotent so a mid-flight restart cannot lose data.
 using (var scope = app.Services.CreateScope())
 {
+    var db = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
+    await db.Database.MigrateAsync();
+
     var seeder = scope.ServiceProvider.GetRequiredService<BudgetSeeder>();
     await seeder.SeedAsync();
 }

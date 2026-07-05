@@ -13,4 +13,12 @@ public interface IPaymentIdempotencyStore
     Task<ReserveBudgetResult?> GetReserveResultAsync(string paymentId, CancellationToken ct = default);
 
     Task SaveReserveResultAsync(string paymentId, ReserveBudgetResult result, CancellationToken ct = default);
+
+    /// <summary>
+    /// Prior <see cref="ExecutePaymentResult"/> for <paramref name="paymentId"/>, or <c>null</c> when
+    /// Execute has not run yet. Replayed on retry so a caller sees the same outcome (§10).
+    /// </summary>
+    Task<ExecutePaymentResult?> GetExecuteResultAsync(string paymentId, CancellationToken ct = default);
+
+    Task SaveExecuteResultAsync(string paymentId, ExecutePaymentResult result, CancellationToken ct = default);
 }

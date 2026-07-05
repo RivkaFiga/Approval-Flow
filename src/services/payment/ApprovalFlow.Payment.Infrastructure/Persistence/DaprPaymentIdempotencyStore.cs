@@ -7,13 +7,15 @@ using Microsoft.Extensions.Options;
 namespace ApprovalFlow.Payment.Infrastructure.Persistence;
 
 /// <summary>
-/// Dapr-state adapter for <see cref="IPaymentIdempotencyStore"/>. Records reserve results keyed by
-/// <c>paymentId</c> so a retried request returns the original outcome (§10). The record itself is the
-/// <see cref="ReserveBudgetResult"/> contract type — no adapter DTO needed.
+/// Dapr-state adapter for <see cref="IPaymentIdempotencyStore"/>. Records reserve and execute results keyed
+/// by <c>paymentId</c> so a retried request returns the original outcome (§10). The stored records are the
+/// contract types themselves — no adapter DTO needed. Reserve and execute records live under distinct key
+/// prefixes so they cannot collide.
 /// </summary>
 public sealed class DaprPaymentIdempotencyStore : IPaymentIdempotencyStore
 {
-    private const string KeyPrefix = "payments|";
+    private const string ReserveKeyPrefix = "payments|reserve|";
+    private const string ExecuteKeyPrefix = "payments|execute|";
 
     private readonly DaprClient _dapr;
     private readonly PaymentInfrastructureOptions _options;
@@ -25,10 +27,17 @@ public sealed class DaprPaymentIdempotencyStore : IPaymentIdempotencyStore
     }
 
     public Task<ReserveBudgetResult?> GetReserveResultAsync(string paymentId, CancellationToken ct = default)
-        => _dapr.GetStateAsync<ReserveBudgetResult?>(_options.StateStoreName, Key(paymentId), cancellationToken: ct);
+        => _dapr.GetStateAsync<ReserveBudgetResult?>(_options.StateStoreName, ReserveKey(paymentId), cancellationToken: ct);
 
     public Task SaveReserveResultAsync(string paymentId, ReserveBudgetResult result, CancellationToken ct = default)
-        => _dapr.SaveStateAsync(_options.StateStoreName, Key(paymentId), result, cancellationToken: ct);
+        => _dapr.SaveStateAsync(_options.StateStoreName, ReserveKey(paymentId), result, cancellationToken: ct);
 
-    private static string Key(string paymentId) => KeyPrefix + paymentId;
+    public Task<ExecutePaymentResult?> GetExecuteResultAsync(string paymentId, CancellationToken ct = default)
+        => _dapr.GetStateAsync<ExecutePaymentResult?>(_options.StateStoreName, ExecuteKey(paymentId), cancellationToken: ct);
+
+    public Task SaveExecuteResultAsync(string paymentId, ExecutePaymentResult result, CancellationToken ct = default)
+        => _dapr.SaveStateAsync(_options.StateStoreName, ExecuteKey(paymentId), result, cancellationToken: ct);
+
+    private static string ReserveKey(string paymentId) => ReserveKeyPrefix + paymentId;
+    private static string ExecuteKey(string paymentId) => ExecuteKeyPrefix + paymentId;
 }
