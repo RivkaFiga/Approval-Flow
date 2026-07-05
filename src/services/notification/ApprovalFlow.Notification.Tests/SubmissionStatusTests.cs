@@ -59,6 +59,21 @@ public class SubmissionStatusTests
     }
 
     [Fact]
+    public void ApplyReviewSubState_clears_stale_awaiting_info_reason_when_transitioning_onward()
+    {
+        var status = Received();
+        status.ApplyDecision(Route.HumanReview, 100m, T0.AddSeconds(1));
+        status.ApplyReviewSubState(ReviewSubState.AwaitingInfo, "Need attendee count.", T0.AddSeconds(2));
+
+        // Submitter provided info → workflow resumes at AwaitingApproval. The prior send-back reason
+        // must not linger — otherwise F2 shows "Need attendee count." while the item is being reviewed.
+        status.ApplyReviewSubState(ReviewSubState.AwaitingApproval, null, T0.AddSeconds(3));
+
+        Assert.Equal(LifecycleStatus.AwaitingApproval, status.CurrentStatus);
+        Assert.Null(status.Reason);
+    }
+
+    [Fact]
     public void ApplyFinalized_records_terminal_status_reason_and_payment_outcome()
     {
         var status = Received();
