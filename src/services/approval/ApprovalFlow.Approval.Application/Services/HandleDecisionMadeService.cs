@@ -1,3 +1,4 @@
+git show feature/payment-service:src/services/approval/ApprovalFlow.Approval.Application/Services/HandleDecisionMadeService.cs             
 using System.Text.Json;
 using ApprovalFlow.Approval.Application.Ports;
 using ApprovalFlow.Approval.Domain.Entities;
@@ -128,7 +129,8 @@ public sealed class HandleDecisionMadeService
         var firstCited = @event.CitedRules.FirstOrDefault();
         return @event.Route switch
         {
-            Route.AutoApprove => $"Auto-approved under autonomy policy (${@event.AmountUsd:F2} USD, confidence {@event.Confidence:F2}).",
+            Route.AutoApprove => $"Auto-approved under autonomy policy (${@event.AmountUsd:F2} USD, confidence {@event.Confidence:F2})
+.",
             Route.Reject => firstCited is null
                 ? "Rejected by policy."
                 : $"Rejected by policy: {firstCited.RuleId} — {firstCited.Detail}",

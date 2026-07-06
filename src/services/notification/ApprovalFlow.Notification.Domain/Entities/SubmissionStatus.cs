@@ -74,8 +74,12 @@ public sealed class SubmissionStatus
     {
         if (!IsNewer(occurredAt)) return;
         Status = (int)ReviewSubStateMap.ToLifecycle(subState);
-        if (subState == ReviewSubState.AwaitingInfo && !string.IsNullOrWhiteSpace(whatWeStillNeed))
-            Reason = whatWeStillNeed;
+        // The submitter-facing Reason for a send-back must not survive the state that produced it: once
+        // the workflow moves on to AwaitingApproval (after InfoProvided) or Paying, F2 would otherwise
+        // still show the stale "what we still need" until item.finalized eventually overwrites it.
+        Reason = subState == ReviewSubState.AwaitingInfo && !string.IsNullOrWhiteSpace(whatWeStillNeed)
+            ? whatWeStillNeed
+            : null;
         UpdatedAt = occurredAt;
     }
 
