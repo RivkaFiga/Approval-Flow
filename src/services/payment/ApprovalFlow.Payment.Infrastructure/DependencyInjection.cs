@@ -1,6 +1,7 @@
 using ApprovalFlow.Payment.Application.Ports;
 using ApprovalFlow.Payment.Application.Services;
 using ApprovalFlow.Payment.Infrastructure.Configuration;
+using ApprovalFlow.Payment.Infrastructure.Events;
 using ApprovalFlow.Payment.Infrastructure.Persistence;
 using ApprovalFlow.Payment.Infrastructure.Providers;
 using Microsoft.EntityFrameworkCore;
@@ -42,6 +43,12 @@ public static class DependencyInjection
         services.AddSingleton<IPaymentProvider, SimulatedPaymentProvider>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<ExecutePaymentService>();
+
+        // Compensate step + saga orchestration wired to item.finalized (§8, §5.2).
+        services.AddScoped<ReleaseReservationService>();
+        services.AddScoped<IPaymentRecordRepository, PaymentRecordRepository>();
+        services.AddScoped<IPaymentEventPublisher, DaprPaymentEventPublisher>();
+        services.AddScoped<HandleItemFinalizedService>();
 
         return services;
     }
