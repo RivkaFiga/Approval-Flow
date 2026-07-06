@@ -7,6 +7,8 @@ public sealed class PaymentDbContext : DbContext
 {
     public DbSet<PaymentLedgerEntry> PaymentLedgerEntries => Set<PaymentLedgerEntry>();
 
+    public DbSet<PaymentRecord> PaymentRecords => Set<PaymentRecord>();
+
     public PaymentDbContext(DbContextOptions<PaymentDbContext> options) : base(options) { }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -27,6 +29,25 @@ public sealed class PaymentDbContext : DbContext
             e.Property(x => x.Department).HasMaxLength(200).IsRequired();
             e.Property(x => x.AmountUsd).HasPrecision(18, 2);
             e.Property(x => x.ProviderReference).HasMaxLength(200).IsRequired();
+        });
+
+        modelBuilder.Entity<PaymentRecord>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            // Redelivery de-dup for the item.finalized subscriber (§10): one saga instance per trackingId.
+            e.Property(x => x.TrackingId).HasMaxLength(50).IsRequired();
+            e.HasIndex(x => x.TrackingId).IsUnique();
+
+            e.Property(x => x.PaymentId).HasMaxLength(100).IsRequired();
+            e.HasIndex(x => x.PaymentId).IsUnique();
+
+            e.Property(x => x.CorrelationId).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Department).HasMaxLength(200).IsRequired();
+            e.Property(x => x.AmountUsd).HasPrecision(18, 2);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
+            e.Property(x => x.LedgerEntryId).HasMaxLength(50);
+            e.Property(x => x.Reason).HasMaxLength(500);
         });
     }
 }

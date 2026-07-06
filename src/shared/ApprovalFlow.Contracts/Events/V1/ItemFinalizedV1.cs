@@ -26,4 +26,11 @@ public sealed record ItemFinalizedV1 : IntegrationEvent
     public ApprovalPath ApprovalPath { get; init; }
 
     public decimal AmountUsd { get; init; }
+
+    /// <summary>
+    /// Owning department budget key (§8), e.g. <c>marketing-2026Q2</c>. Populated for items that ran through
+    /// approval so the Payment saga can key its ETag CAS on the correct budget; empty for non-payment
+    /// finalizations (rejected/duplicate).
+    /// </summary>
+    public string Department { get; init; } = string.Empty;
 }

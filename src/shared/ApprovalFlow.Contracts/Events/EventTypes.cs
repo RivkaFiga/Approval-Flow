@@ -10,4 +10,5 @@ public static class EventTypes
     public const string DecisionMade = "decision.made";
     public const string ReviewStatus = "review.status";
     public const string ItemFinalized = "item.finalized";
+    public const string PaymentCompleted = "payment.completed";
 }

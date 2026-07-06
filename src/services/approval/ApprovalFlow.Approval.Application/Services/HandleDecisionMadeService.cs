@@ -103,7 +103,8 @@ public sealed class HandleDecisionMadeService
             Reason = BuildReason(@event),
             PaymentOutcome = paymentOutcome,
             ApprovalPath = path,
-            AmountUsd = @event.AmountUsd
+            AmountUsd = @event.AmountUsd,
+            Department = @event.Department
         };
         return _publisher.PublishItemFinalizedAsync(finalized, ct);
     }
