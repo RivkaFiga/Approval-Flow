@@ -1,4 +1,41 @@
+x-dapr-common: &dapr-common
+  image: daprio/daprd:1.14.4
+  volumes:
+    - ./dapr/components:/dapr/components
+    - ./dapr/config.yaml:/dapr/config.yaml
+    - ./dapr/secrets:/run/secrets
+  depends_on:
+    placement:
+      condition: service_started
+    scheduler:
+      condition: service_started
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+
+x-service-common: &service-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  environment:
+    ASPNETCORE_ENVIRONMENT: Development
+    ASPNETCORE_URLS: http://+:8080
+    OpenTelemetry__OtlpEndpoint: ""
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+    placement:
+      condition: service_started
+    scheduler:
+      condition: service_started
+
 services:
+  # ---------- Infrastructure ----------
   postgres:
     image: postgres:16-alpine
     environment:
@@ -13,7 +50,445 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres -d approvalflow"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: approvalflow
+      RABBITMQ_DEFAULT_PASS: approvalflow
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ---------- Dapr control plane ----------
+  placement:
+    image: daprio/dapr:1.14.4
+    command: ["./placement", "-port", "50006"]
+    ports:
+      - "50006:50006"
+
+  scheduler:
+    image: daprio/dapr:1.14.4
+    command:
+      - ./scheduler
+      - --port
+      - "50007"
+      - --etcd-data-dir
+      - /var/lock/dapr/scheduler
+    ports:
+      - "50007:50007"
+    volumes:
+      - scheduler_data:/var/lock/dapr/scheduler
+
+  # ---------- Gateway ----------
+  gateway:
+    <<: *service-common
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PROJECT_PATH: src/gateway/ApprovalFlow.Gateway
+        PROJECT_NAME: ApprovalFlow.Gateway
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      OpenTelemetry__OtlpEndpoint: ""
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  gateway-dapr:
+    <<: *dapr-common
+    command:
+      - ./daprd
+      - -app-id
+      - gateway
+      - -app-port
+      - "8080"
+      - -dapr-http-port
+      - "3500"
+      - -dapr-grpc-port
+      - "50001"
+      - -placement-host-address
+      - "placement:50006"
+      - -scheduler-host-address
+      - "scheduler:50007"
+      - -components-path
+      - /dapr/components
+      - -config
+      - /dapr/config.yaml
+      - -log-level
+      - info
+    network_mode: "service:gateway"
+    depends_on:
+      gateway:
+        condition: service_started
+      placement:
+        condition: service_started
+      scheduler:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ---------- Intake ----------
+  intake:
+    <<: *service-common
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PROJECT_PATH: src/services/intake/ApprovalFlow.Intake.Api
+        PROJECT_NAME: ApprovalFlow.Intake.Api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      OpenTelemetry__OtlpEndpoint: ""
+      ConnectionStrings__IntakeDb: "Host=postgres;Port=5432;Database=approvalflow;Username=postgres;Password=postgres"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  intake-dapr:
+    <<: *dapr-common
+    command:
+      - ./daprd
+      - -app-id
+      - intake
+      - -app-port
+      - "8080"
+      - -dapr-http-port
+      - "3500"
+      - -dapr-grpc-port
+      - "50001"
+      - -placement-host-address
+      - "placement:50006"
+      - -scheduler-host-address
+      - "scheduler:50007"
+      - -components-path
+      - /dapr/components
+      - -config
+      - /dapr/config.yaml
+      - -log-level
+      - info
+    network_mode: "service:intake"
+    depends_on:
+      intake:
+        condition: service_started
+      placement:
+        condition: service_started
+      scheduler:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ---------- AI-Decision ----------
+  ai-decision:
+    <<: *service-common
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PROJECT_PATH: src/services/ai-decision/ApprovalFlow.AiDecision.Api
+        PROJECT_NAME: ApprovalFlow.AiDecision.Api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      OpenTelemetry__OtlpEndpoint: ""
+      ConnectionStrings__AiDecisionDb: "Host=postgres;Port=5432;Database=approvalflow;Username=postgres;Password=postgres"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ai-decision-dapr:
+    <<: *dapr-common
+    command:
+      - ./daprd
+      - -app-id
+      - ai-decision
+      - -app-port
+      - "8080"
+      - -dapr-http-port
+      - "3500"
+      - -dapr-grpc-port
+      - "50001"
+      - -placement-host-address
+      - "placement:50006"
+      - -scheduler-host-address
+      - "scheduler:50007"
+      - -components-path
+      - /dapr/components
+      - -config
+      - /dapr/config.yaml
+      - -log-level
+      - info
+    network_mode: "service:ai-decision"
+    depends_on:
+      ai-decision:
+        condition: service_started
+      placement:
+        condition: service_started
+      scheduler:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ---------- Approval (Dapr Workflow host) ----------
+  approval:
+    <<: *service-common
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PROJECT_PATH: src/services/approval/ApprovalFlow.Approval.Api
+        PROJECT_NAME: ApprovalFlow.Approval.Api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      OpenTelemetry__OtlpEndpoint: ""
+      ConnectionStrings__ApprovalDb: "Host=postgres;Port=5432;Database=approvalflow;Username=postgres;Password=postgres"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  approval-dapr:
+    <<: *dapr-common
+    command:
+      - ./daprd
+      - -app-id
+      - approval
+      - -app-port
+      - "8080"
+      - -dapr-http-port
+      - "3500"
+      - -dapr-grpc-port
+      - "50001"
+      - -placement-host-address
+      - "placement:50006"
+      - -scheduler-host-address
+      - "scheduler:50007"
+      - -components-path
+      - /dapr/components
+      - -config
+      - /dapr/config.yaml
+      - -log-level
+      - info
+    network_mode: "service:approval"
+    depends_on:
+      approval:
+        condition: service_started
+      placement:
+        condition: service_started
+      scheduler:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ---------- Payment ----------
+  payment:
+    <<: *service-common
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PROJECT_PATH: src/services/payment/ApprovalFlow.Payment.Api
+        PROJECT_NAME: ApprovalFlow.Payment.Api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      OpenTelemetry__OtlpEndpoint: ""
+      ConnectionStrings__PaymentDb: "Host=postgres;Port=5432;Database=approvalflow;Username=postgres;Password=postgres"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  payment-dapr:
+    <<: *dapr-common
+    command:
+      - ./daprd
+      - -app-id
+      - payment
+      - -app-port
+      - "8080"
+      - -dapr-http-port
+      - "3500"
+      - -dapr-grpc-port
+      - "50001"
+      - -placement-host-address
+      - "placement:50006"
+      - -scheduler-host-address
+      - "scheduler:50007"
+      - -components-path
+      - /dapr/components
+      - -config
+      - /dapr/config.yaml
+      - -log-level
+      - info
+    network_mode: "service:payment"
+    depends_on:
+      payment:
+        condition: service_started
+      placement:
+        condition: service_started
+      scheduler:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ---------- Notification ----------
+  notification:
+    <<: *service-common
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PROJECT_PATH: src/services/notification/ApprovalFlow.Notification.Api
+        PROJECT_NAME: ApprovalFlow.Notification.Api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      OpenTelemetry__OtlpEndpoint: ""
+      ConnectionStrings__NotificationDb: "Host=postgres;Port=5432;Database=approvalflow;Username=postgres;Password=postgres"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  notification-dapr:
+    <<: *dapr-common
+    command:
+      - ./daprd
+      - -app-id
+      - notification
+      - -app-port
+      - "8080"
+      - -dapr-http-port
+      - "3500"
+      - -dapr-grpc-port
+      - "50001"
+      - -placement-host-address
+      - "placement:50006"
+      - -scheduler-host-address
+      - "scheduler:50007"
+      - -components-path
+      - /dapr/components
+      - -config
+      - /dapr/config.yaml
+      - -log-level
+      - info
+    network_mode: "service:notification"
+    depends_on:
+      notification:
+        condition: service_started
+      placement:
+        condition: service_started
+      scheduler:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ---------- Config/Policy ----------
+  config-policy:
+    <<: *service-common
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PROJECT_PATH: src/services/config-policy/ApprovalFlow.ConfigPolicy.Api
+        PROJECT_NAME: ApprovalFlow.ConfigPolicy.Api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      OpenTelemetry__OtlpEndpoint: ""
+      ConnectionStrings__ConfigPolicyDb: "Host=postgres;Port=5432;Database=approvalflow;Username=postgres;Password=postgres"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  config-policy-dapr:
+    <<: *dapr-common
+    command:
+      - ./daprd
+      - -app-id
+      - config-policy
+      - -app-port
+      - "8080"
+      - -dapr-http-port
+      - "3500"
+      - -dapr-grpc-port
+      - "50001"
+      - -placement-host-address
+      - "placement:50006"
+      - -scheduler-host-address
+      - "scheduler:50007"
+      - -components-path
+      - /dapr/components
+      - -config
+      - /dapr/config.yaml
+      - -log-level
+      - info
+    network_mode: "service:config-policy"
+    depends_on:
+      config-policy:
+        condition: service_started
+      placement:
+        condition: service_started
+      scheduler:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  redis_data:
+  rabbitmq_data:
+  scheduler_data:
