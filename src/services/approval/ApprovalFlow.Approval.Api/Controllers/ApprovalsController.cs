@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ApprovalFlow.Approval.Application.Ports;
 using ApprovalFlow.Contracts.Enums;
 using ApprovalFlow.Contracts.Invocation.V1;
@@ -10,6 +11,7 @@ namespace ApprovalFlow.Approval.Api.Controllers;
 /// HITL resume endpoints (F5, §9). Each action raises a single <c>ApprovalDecision</c> external event on
 /// the durable workflow instance identified by <paramref name="trackingId"/>:
 /// <list type="bullet">
+///   <item><c>GET /approvals/queue</c> — pending human-review items (F4).</item>
 ///   <item><c>POST /approvals/{trackingId}/approve</c> — approver approves; workflow finalizes as
 ///     <c>paid</c> (human path).</item>
 ///   <item><c>POST /approvals/{trackingId}/reject</c> — approver rejects; workflow finalizes as
@@ -24,14 +26,38 @@ namespace ApprovalFlow.Approval.Api.Controllers;
 public sealed class ApprovalsController : ControllerBase
 {
     private readonly IApprovalWorkflowEventRaiser _raiser;
+    private readonly IPendingApprovalRepository _queue;
     private readonly ILogger<ApprovalsController> _logger;
 
     public ApprovalsController(
         IApprovalWorkflowEventRaiser raiser,
+        IPendingApprovalRepository queue,
         ILogger<ApprovalsController> logger)
     {
         _raiser = raiser;
+        _queue = queue;
         _logger = logger;
+    }
+
+    [HttpGet("queue")]
+    [ProducesResponseType(typeof(ApproverQueueResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Queue(CancellationToken ct)
+    {
+        var items = await _queue.ListAsync(ct);
+        return Ok(new ApproverQueueResponse
+        {
+            Items = items.Select(x => new PendingApprovalDto
+            {
+                TrackingId = x.TrackingId,
+                CorrelationId = x.CorrelationId,
+                AgentRecommendation = (Recommendation)x.AgentRecommendation,
+                Confidence = x.Confidence,
+                CitedRuleIds = JsonSerializer.Deserialize<List<string>>(x.CitedRulesJson) ?? [],
+                AmountUsd = x.AmountUsd,
+                Department = x.Department,
+                EscalatedAt = x.EscalatedAt
+            }).ToList()
+        });
     }
 
     [HttpPost("{trackingId}/approve")]
