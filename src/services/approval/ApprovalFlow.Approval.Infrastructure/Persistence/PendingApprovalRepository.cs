@@ -14,6 +14,9 @@ public sealed class PendingApprovalRepository : IPendingApprovalRepository
 
     public PendingApprovalRepository(ApprovalDbContext db) => _db = db;
 
+    public async Task<IReadOnlyList<PendingApproval>> ListAsync(CancellationToken ct = default)
+        => await _db.PendingApprovals.OrderBy(x => x.EscalatedAt).ToListAsync(ct);
+
     public Task<bool> ExistsByTrackingIdAsync(string trackingId, CancellationToken ct = default)
         => _db.PendingApprovals.AnyAsync(x => x.TrackingId == trackingId, ct);
 
