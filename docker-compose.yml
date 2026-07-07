@@ -90,6 +90,7 @@ services:
 
   scheduler:
     image: daprio/dapr:1.14.4
+    user: root
     command:
       - ./scheduler
       - --port

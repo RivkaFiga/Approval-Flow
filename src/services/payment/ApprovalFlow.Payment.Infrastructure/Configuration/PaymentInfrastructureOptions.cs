@@ -12,7 +12,7 @@ public sealed class PaymentInfrastructureOptions
     public const string SectionName = "Payment";
 
     /// <summary>Dapr state-store component name (durable backend per §5.3).</summary>
-    public string StateStoreName { get; set; } = "approvalflow-state";
+    public string StateStoreName { get; set; } = "approvalflow-statestore";
 
     /// <summary>Initial department budgets in USD, keyed by department id (e.g. <c>marketing-2026Q2</c>).</summary>
     public Dictionary<string, decimal> InitialBudgets { get; set; } = new();
