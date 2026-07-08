@@ -116,7 +116,7 @@ services:
       ASPNETCORE_URLS: http://+:8080
       OpenTelemetry__OtlpEndpoint: ""
     ports:
-      - "8080:8080"
+      - "5100:8080"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
       interval: 10s
@@ -282,6 +282,8 @@ services:
       ASPNETCORE_URLS: http://+:8080
       OpenTelemetry__OtlpEndpoint: ""
       ConnectionStrings__ApprovalDb: "Host=postgres;Port=5432;Database=approvalflow;Username=postgres;Password=postgres"
+    ports:
+     - "5102:8080"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
       interval: 10s
