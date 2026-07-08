@@ -21,7 +21,9 @@ internal static class FixtureLoader
     {
         Invoice = new Invoice
         {
-            InvoiceNumber  = f.InvoiceNumber,
+            // Append a short random suffix so each test run produces a unique dedup key and
+            // intake never short-circuits with AcceptanceStatus.Duplicate on repeated runs.
+            InvoiceNumber  = $"{f.InvoiceNumber}-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}",
             Vendor         = f.Vendor,
             VendorKnown    = f.VendorKnown,
             Submitter      = f.Submitter,
