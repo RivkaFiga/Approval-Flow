@@ -1,6 +1,5 @@
 using ApprovalFlow.Contracts.Events.V1;
 using ApprovalFlow.Notification.Application.Ports;
-using ApprovalFlow.Notification.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace ApprovalFlow.Notification.Application.Services;
@@ -25,13 +24,9 @@ public sealed class HandleItemFinalizedService
 
     public async Task HandleAsync(ItemFinalizedV1 @event, CancellationToken ct = default)
     {
-        var status = await _repo.GetByTrackingIdAsync(@event.TrackingId, ct);
-        if (status is null)
-        {
-            // Out-of-order arrival: seed at MinValue so the event's OccurredAt advances state.
-            status = SubmissionStatus.CreateReceived(@event.TrackingId, @event.CorrelationId, DateTimeOffset.MinValue);
-            await _repo.AddAsync(status, ct);
-        }
+        // GetOrCreateReceivedAsync handles the concurrent-insert race from parallel topic delivery.
+        var status = await _repo.GetOrCreateReceivedAsync(
+            @event.TrackingId, @event.CorrelationId, DateTimeOffset.MinValue, ct);
 
         status.ApplyFinalized(@event.FinalStatus, @event.Reason, @event.PaymentOutcome, @event.OccurredAt);
         await _repo.SaveChangesAsync(ct);

@@ -1,6 +1,5 @@
 using ApprovalFlow.Contracts.Events.V1;
 using ApprovalFlow.Notification.Application.Ports;
-using ApprovalFlow.Notification.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace ApprovalFlow.Notification.Application.Services;
@@ -26,14 +25,10 @@ public sealed class HandleDecisionMadeService
 
     public async Task HandleAsync(DecisionMadeV1 @event, CancellationToken ct = default)
     {
-        var status = await _repo.GetByTrackingIdAsync(@event.TrackingId, ct);
-        if (status is null)
-        {
-            // Out-of-order arrival: the row is seeded at MinValue so the event's own OccurredAt still
-            // advances the projection past the synthesized <c>received</c> placeholder.
-            status = SubmissionStatus.CreateReceived(@event.TrackingId, @event.CorrelationId, DateTimeOffset.MinValue);
-            await _repo.AddAsync(status, ct);
-        }
+        // Seed at MinValue so the event's own OccurredAt advances past the placeholder.
+        // GetOrCreateReceivedAsync handles the concurrent-insert race from parallel topic delivery.
+        var status = await _repo.GetOrCreateReceivedAsync(
+            @event.TrackingId, @event.CorrelationId, DateTimeOffset.MinValue, ct);
 
         status.ApplyDecision(@event.Route, @event.AmountUsd, @event.OccurredAt);
         await _repo.SaveChangesAsync(ct);
