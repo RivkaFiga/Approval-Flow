@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore ApprovalFlow.sln
+
+      - name: Build
+        run: dotnet build ApprovalFlow.sln --no-restore --configuration Release
+
+      - name: Test - Intake
+        run: dotnet test src/services/intake/ApprovalFlow.Intake.Tests/ApprovalFlow.Intake.Tests.csproj --no-build --configuration Release --verbosity normal
+
+      - name: Test - AiDecision
+        run: dotnet test src/services/ai-decision/ApprovalFlow.AiDecision.Tests/ApprovalFlow.AiDecision.Tests.csproj --no-build --configuration Release --verbosity normal
+
+      - name: Test - Approval
+        run: dotnet test src/services/approval/ApprovalFlow.Approval.Tests/ApprovalFlow.Approval.Tests.csproj --no-build --configuration Release --verbosity normal
+
+      - name: Test - Payment
+        run: dotnet test src/services/payment/ApprovalFlow.Payment.Tests/ApprovalFlow.Payment.Tests.csproj --no-build --configuration Release --verbosity normal
+
+      - name: Test - Notification
+        run: dotnet test src/services/notification/ApprovalFlow.Notification.Tests/ApprovalFlow.Notification.Tests.csproj --no-build --configuration Release --verbosity normal
+
+      - name: Test - ConfigPolicy
+        run: dotnet test src/services/config-policy/ApprovalFlow.ConfigPolicy.Tests/ApprovalFlow.ConfigPolicy.Tests.csproj --no-build --configuration Release --verbosity normal
