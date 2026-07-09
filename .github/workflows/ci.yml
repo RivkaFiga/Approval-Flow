@@ -45,7 +45,21 @@ jobs:
         run: docker compose build
 
       - name: Start stack (docker compose up --wait)
-        run: docker compose up -d --wait --wait-timeout 300
+        run: |
+          set -euo pipefail
+          # `secrets-bootstrap` is a one-shot init container (defined on main). `docker compose up --wait`
+          # returns non-zero when any service transitions to "exited" during its wait window — even when
+          # that exit is the expected outcome of a service_completed_successfully dependency
+          # (docker/compose#10596). Run the bootstrap to completion first, then wait only on the
+          # long-running services.
+          if docker compose config --services | grep -Fxq secrets-bootstrap; then
+            docker compose up -d secrets-bootstrap
+            docker compose wait secrets-bootstrap
+            long_running=$(docker compose config --services | grep -Fxv secrets-bootstrap | xargs)
+          else
+            long_running=$(docker compose config --services | xargs)
+          fi
+          docker compose up -d --wait --wait-timeout 300 $long_running
 
       - name: Test - E2E
         run: dotnet test tests/ApprovalFlow.E2E/ApprovalFlow.E2E.csproj --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed" --logger "trx;LogFileName=e2e-results.trx"
