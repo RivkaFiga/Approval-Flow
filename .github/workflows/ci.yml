@@ -45,7 +45,34 @@ jobs:
         run: docker compose up -d --build --wait --wait-timeout 300
 
       - name: Test - E2E
-        run: dotnet test tests/ApprovalFlow.E2E/ApprovalFlow.E2E.csproj --no-build --configuration Release --verbosity normal
+        run: dotnet test tests/ApprovalFlow.E2E/ApprovalFlow.E2E.csproj --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed"
+
+      - name: Dump compose logs on failure
+        if: failure()
+        run: |
+         echo "=== Docker containers ==="
+         docker compose ps
+
+         echo "=== E2E test artifacts ==="
+         find . -name "*.trx" -print
+
+         echo "=== Compose logs ==="
+         docker compose logs
+
+         echo "=== Gateway logs ==="
+         docker compose logs gateway
+
+         echo "=== Intake logs ==="
+         docker compose logs intake
+
+         echo "=== Approval logs ==="
+         docker compose logs approval
+
+         echo "=== Notification logs ==="
+         docker compose logs notification
+
+         echo "=== AI Decision logs ==="
+         docker compose logs ai-decision
 
       - name: Upload E2E results
         if: failure()
