@@ -26,7 +26,10 @@ public static class DependencyInjection
 
         services.AddScoped<IDecisionRepository, DecisionRepository>();
         services.AddScoped<IDecisionEventPublisher, DaprDecisionEventPublisher>();
-        services.AddSingleton<IPolicySnapshotProvider, ConfigPolicySnapshotProvider>();
+        services.AddSingleton<ConfigPolicySnapshotProvider>();
+        services.AddSingleton<DaprConfigPolicySnapshotProvider>();
+        services.AddSingleton<IPolicySnapshotProvider>(sp =>
+            sp.GetRequiredService<DaprConfigPolicySnapshotProvider>());
         services.AddSingleton<IPolicyAgent, StubPolicyAgent>();
         services.AddScoped<DecideInvoiceService>();
 
