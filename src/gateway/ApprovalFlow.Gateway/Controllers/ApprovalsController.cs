@@ -1,11 +1,14 @@
 using ApprovalFlow.Contracts.Invocation.V1;
+using ApprovalFlow.Gateway.Auth;
 using Dapr.Client;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ApprovalFlow.Gateway.Controllers;
 
 [ApiController]
 [Route("approvals")]
+[Authorize(Policy = "Approver")]
 public sealed class ApprovalsController : ControllerBase
 {
     private readonly DaprClient _dapr;
@@ -39,8 +42,14 @@ public sealed class ApprovalsController : ControllerBase
     private async Task<IActionResult> InvokeActionAsync(
         string trackingId, string action, ApproverInput body, CancellationToken ct)
     {
+        var approverId = ApproverIdentity.TryResolve(User);
+        if (approverId is null)
+            return Unauthorized();
+
+        var authoritative = body with { ApproverId = approverId };
+
         var response = await _dapr.InvokeMethodAsync<ApproverInput, ApproverActionResponse>(
-            HttpMethod.Post, "approval", $"approvals/{trackingId}/{action}", body, ct);
+            HttpMethod.Post, "approval", $"approvals/{trackingId}/{action}", authoritative, ct);
         return Accepted(response);
     }
 
