@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ApprovalFlow.Contracts.Invocation.V1;
@@ -9,9 +10,11 @@ internal sealed class GatewayClient
     private readonly HttpClient _http;
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 
-    public GatewayClient(string baseUrl)
+    public GatewayClient(string baseUrl, string? bearerToken = null)
     {
         _http = new HttpClient { BaseAddress = new Uri(baseUrl) };
+        if (bearerToken is not null)
+            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
     }
 
     public async Task<bool> IsHealthyAsync(CancellationToken ct)
