@@ -56,7 +56,7 @@ jobs:
 
       - name: Dump compose logs on failure
         if: failure()
-        run:
+        run: |
           docker compose ps 
           docker compose logs 
           docker compose logs gateway  
