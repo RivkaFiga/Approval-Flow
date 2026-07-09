@@ -58,12 +58,12 @@ jobs:
         if: failure()
         run:
           docker compose ps 
-          docker compose logs --no-color
-          docker compose logs gateway --no-color --timestamps
-          docker compose logs intake --no-color --timestamps
-          docker compose logs approval --no-color --timestamps
-          docker compose logs notification --no-color --timestamps
-          docker compose logs ai-decision --no-color --timestamps
+          docker compose logs 
+          docker compose logs gateway  
+          docker compose logs intake  
+          docker compose logs approval  
+          docker compose logs notification  
+          docker compose logs ai-decision  
 
       - name: Tear down stack
         if: always()
