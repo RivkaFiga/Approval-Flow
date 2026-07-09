@@ -1,0 +1,18 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: approvalflow-config
+spec:
+  tracing:
+    samplingRate: "1"
+    stdout: true
+  features:
+    - name: SchedulerReminders
+      enabled: true
+  # AI-Decision only consumes pub/sub (invoice.submitted, policy.changed) and
+  # calls config-policy outbound. Nothing is expected to invoke it. Once mTLS
+  # is on, the empty allow-list here rejects any identified caller.
+  accessControl:
+    defaultAction: allow
+    trustDomain: "public"
+    policies: []

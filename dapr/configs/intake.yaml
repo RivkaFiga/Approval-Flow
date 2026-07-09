@@ -1,0 +1,37 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: approvalflow-config
+spec:
+  tracing:
+    samplingRate: "1"
+    stdout: true
+  features:
+    - name: SchedulerReminders
+      enabled: true
+  # Access control for the intake sidecar.
+  #
+  # Only the gateway may invoke intake, and only via POST /api/Intake. That
+  # allow-list is expressed by the source-scoped policy below with its own
+  # defaultAction: deny — any operation the gateway attempts that isn't the
+  # single listed one is rejected.
+  #
+  # Note on the spec-level defaultAction: Dapr identifies the calling app-id
+  # from the mTLS SPIFFE handshake. mTLS+Sentry are not yet enabled in this
+  # deployment, so a sidecar-to-sidecar call arrives with an empty source id
+  # and a spec-level "deny" here would block every legitimate cross-service
+  # call, breaking the pipeline. We therefore keep the spec-level action as
+  # allow today; once mTLS is turned on the strict allow-list policies below
+  # take effect automatically for every identified caller.
+  accessControl:
+    defaultAction: allow
+    trustDomain: "public"
+    policies:
+      - appId: gateway
+        defaultAction: deny
+        trustDomain: "public"
+        namespace: "default"
+        operations:
+          - name: /api/Intake
+            httpVerb: ["POST"]
+            action: allow

@@ -1,0 +1,19 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: approvalflow-config
+spec:
+  tracing:
+    samplingRate: "1"
+    stdout: true
+  features:
+    - name: SchedulerReminders
+      enabled: true
+  # Gateway is the ingress edge — no other Dapr sidecar is expected to invoke
+  # it. Once mTLS is enabled, any identified caller will hit the (empty)
+  # allow-list below and be rejected. Until then, the spec-level allow keeps
+  # local pub/sub delivery paths and health probes flowing.
+  accessControl:
+    defaultAction: allow
+    trustDomain: "public"
+    policies: []
