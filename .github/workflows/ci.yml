@@ -41,8 +41,11 @@ jobs:
       - name: Test - ConfigPolicy
         run: dotnet test src/services/config-policy/ApprovalFlow.ConfigPolicy.Tests/ApprovalFlow.ConfigPolicy.Tests.csproj --no-build --configuration Release --verbosity normal
 
+      - name: Build Docker images
+        run: docker compose build
+
       - name: Start stack (docker compose up --wait)
-        run: docker compose up -d --build --wait --wait-timeout 300
+        run: docker compose up -d --wait --wait-timeout 300
 
       - name: Test - E2E
         run: dotnet test tests/ApprovalFlow.E2E/ApprovalFlow.E2E.csproj --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed" --logger "trx;LogFileName=e2e-results.trx"
@@ -62,6 +65,12 @@ jobs:
          echo "=== Compose logs ==="
          docker compose logs
 
+         echo "=== Placement logs ==="
+         docker compose logs placement
+
+         echo "=== Scheduler logs ==="
+         docker compose logs scheduler
+
          echo "=== Gateway logs ==="
          docker compose logs gateway
 
@@ -76,6 +85,12 @@ jobs:
 
          echo "=== AI Decision logs ==="
          docker compose logs ai-decision
+
+         echo "=== Payment logs ==="
+         docker compose logs payment
+
+         echo "=== Config-Policy logs ==="
+         docker compose logs config-policy
 
       - name: Upload E2E results
         if: failure()
