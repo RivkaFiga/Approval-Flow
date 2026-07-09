@@ -3,3 +3,7 @@ obj/
 *.user
 .vs/
 .env
+
+# Runtime Dapr secrets — populated from secrets.example.json by the
+# secrets-bootstrap init container. Only the example is committed.
+dapr/secrets/secrets.json

@@ -1,0 +1,25 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: approvalflow-config
+spec:
+  tracing:
+    samplingRate: "1"
+    stdout: true
+  features:
+    - name: SchedulerReminders
+      enabled: true
+  # Only gateway may invoke notification, and only GET /api/status/{trackingId}.
+  # See intake.yaml for the rationale on the spec-level allow.
+  accessControl:
+    defaultAction: allow
+    trustDomain: "public"
+    policies:
+      - appId: gateway
+        defaultAction: deny
+        trustDomain: "public"
+        namespace: "default"
+        operations:
+          - name: /api/status
+            httpVerb: ["GET"]
+            action: allow

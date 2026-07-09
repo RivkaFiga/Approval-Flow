@@ -1,0 +1,18 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: approvalflow-config
+spec:
+  tracing:
+    samplingRate: "1"
+    stdout: true
+  features:
+    - name: SchedulerReminders
+      enabled: true
+  # Payment only reacts to pub/sub (item.finalized) and uses state store —
+  # nothing is expected to invoke it. Once mTLS is on, the empty allow-list
+  # here rejects any identified caller.
+  accessControl:
+    defaultAction: allow
+    trustDomain: "public"
+    policies: []

@@ -1,0 +1,25 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: approvalflow-config
+spec:
+  tracing:
+    samplingRate: "1"
+    stdout: true
+  features:
+    - name: SchedulerReminders
+      enabled: true
+  # Only ai-decision may invoke config-policy, and only GET /api/policy-snapshot.
+  # See intake.yaml for the rationale on the spec-level allow.
+  accessControl:
+    defaultAction: allow
+    trustDomain: "public"
+    policies:
+      - appId: ai-decision
+        defaultAction: deny
+        trustDomain: "public"
+        namespace: "default"
+        operations:
+          - name: /api/policy-snapshot
+            httpVerb: ["GET"]
+            action: allow
