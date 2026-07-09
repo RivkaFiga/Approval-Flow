@@ -53,8 +53,7 @@ jobs:
           # (docker/compose#10596). Run the bootstrap to completion first, then wait only on the
           # long-running services.
           if docker compose config --services | grep -Fxq secrets-bootstrap; then
-            docker compose up -d secrets-bootstrap
-            docker compose wait secrets-bootstrap
+            docker compose up secrets-bootstrap
             long_running=$(docker compose config --services | grep -Fxv secrets-bootstrap | xargs)
           else
             long_running=$(docker compose config --services | xargs)
@@ -115,4 +114,4 @@ jobs:
 
       - name: Tear down stack
         if: always()
-        run: docker compose down -v
+        run: docker compose down -v || true
