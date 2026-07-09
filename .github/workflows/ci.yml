@@ -40,3 +40,17 @@ jobs:
 
       - name: Test - ConfigPolicy
         run: dotnet test src/services/config-policy/ApprovalFlow.ConfigPolicy.Tests/ApprovalFlow.ConfigPolicy.Tests.csproj --no-build --configuration Release --verbosity normal
+
+      - name: Start stack (docker compose up --wait)
+        run: docker compose up -d --build --wait --wait-timeout 300
+
+      - name: Test - E2E
+        run: dotnet test tests/ApprovalFlow.E2E/ApprovalFlow.E2E.csproj --no-build --configuration Release --verbosity normal
+
+      - name: Dump compose logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v
