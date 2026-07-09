@@ -21,7 +21,8 @@ public sealed class InvoiceFlowTests
             .Build();
 
         _settings     = config.GetSection("E2E").Get<E2ESettings>() ?? new E2ESettings();
-        _gateway      = new GatewayClient(_settings.GatewayBaseUrl);
+        var jwt       = JwtTokenHelper.CreateSubmitterToken(_settings.Jwt);
+        _gateway      = new GatewayClient(_settings.GatewayBaseUrl, jwt);
         _notification = new NotificationClient(_settings.NotificationBaseUrl);
     }
 
