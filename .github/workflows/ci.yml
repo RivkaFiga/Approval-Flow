@@ -45,7 +45,7 @@ jobs:
         run: docker compose up -d --build --wait --wait-timeout 300
 
       - name: Test - E2E
-        run: dotnet test tests/ApprovalFlow.E2E/ApprovalFlow.E2E.csproj --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed"
+        run: dotnet test tests/ApprovalFlow.E2E/ApprovalFlow.E2E.csproj --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed" --logger "trx;LogFileName=e2e-results.trx"
 
       - name: Dump compose logs on failure
         if: failure()
@@ -55,6 +55,9 @@ jobs:
 
          echo "=== E2E test artifacts ==="
          find . -name "*.trx" -print
+
+         echo "=== E2E trx content ==="
+         find . -name "*.trx" -print -exec cat {} \;
 
          echo "=== Compose logs ==="
          docker compose logs
@@ -80,17 +83,6 @@ jobs:
         with:
           name: e2e-results
           path: "**/e2e-results.trx"
-
-      - name: Dump compose logs on failure
-        if: failure()
-        run: |
-          docker compose ps 
-          docker compose logs 
-          docker compose logs gateway  
-          docker compose logs intake  
-          docker compose logs approval  
-          docker compose logs notification  
-          docker compose logs ai-decision  
 
       - name: Tear down stack
         if: always()
