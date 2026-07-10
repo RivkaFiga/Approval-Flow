@@ -4,7 +4,7 @@ namespace ApprovalFlow.Approval.Tests;
 
 /// <summary>
 /// Placeholder retained only so the scaffolding survives a project regeneration; the meaningful behaviour
-/// tests live alongside — see <c>WorkflowDeciderTests</c> and <c>HandleDecisionMadeServiceTests</c>.
+/// tests live alongside — see <c>WorkflowDeciderTests</c> and <c>DecisionMadeSubscriberTests</c>.
 /// </summary>
 public class ScaffoldingTests
 {
