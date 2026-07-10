@@ -12,9 +12,18 @@ internal sealed class GatewayClient
 
     public GatewayClient(string baseUrl, string? bearerToken = null)
     {
-        _http = new HttpClient { BaseAddress = new Uri(baseUrl) };
+        _http = new HttpClient
+        {
+            BaseAddress = new Uri(baseUrl)
+        };
+
         if (bearerToken is not null)
-            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+        {
+            _http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue(
+                    "Bearer",
+                    bearerToken);
+        }
     }
 
     public async Task<bool> IsHealthyAsync(CancellationToken ct)
@@ -30,11 +39,24 @@ internal sealed class GatewayClient
         }
     }
 
-    public async Task<SubmitInvoiceResponse> SubmitAsync(SubmitInvoiceRequest request, CancellationToken ct)
+    public async Task<SubmitInvoiceResponse> SubmitAsync(
+        SubmitInvoiceRequest request,
+        CancellationToken ct)
     {
-        var response = await _http.PostAsJsonAsync("/api/intake", request, _json, ct);
+        var response = await _http.PostAsJsonAsync(
+            "/api/intake",
+            request,
+            _json,
+            ct);
+
         response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<SubmitInvoiceResponse>(_json, ct);
-        return result ?? throw new InvalidOperationException("Empty response body from POST /api/intake.");
+
+        var result = await response.Content.ReadFromJsonAsync<SubmitInvoiceResponse>(
+            _json,
+            ct);
+
+        return result ??
+            throw new InvalidOperationException(
+                "Empty response body from POST /api/intake.");
     }
 }

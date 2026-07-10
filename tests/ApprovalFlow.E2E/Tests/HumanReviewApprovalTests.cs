@@ -21,17 +21,28 @@ public sealed class HumanReviewApprovalTests
     private readonly ApprovalClient _approval;
 
     public HumanReviewApprovalTests()
-    {
-        var config = new ConfigurationBuilder()
-            .AddJsonFile("appsettings.E2E.json", optional: false, reloadOnChange: false)
-            .AddEnvironmentVariables()
-            .Build();
+{
+    var config = new ConfigurationBuilder()
+        .AddJsonFile("appsettings.E2E.json", optional: false, reloadOnChange: false)
+        .AddEnvironmentVariables()
+        .Build();
 
-        _settings     = config.GetSection("E2E").Get<E2ESettings>() ?? new E2ESettings();
-        _gateway      = new GatewayClient(_settings.GatewayBaseUrl);
-        _notification = new NotificationClient(_settings.NotificationBaseUrl);
-        _approval     = new ApprovalClient(_settings.ApprovalBaseUrl);
-    }
+    _settings = config
+        .GetSection("E2E")
+        .Get<E2ESettings>() ?? new E2ESettings();
+
+    var jwt = JwtTokenHelper.CreateSubmitterToken(_settings.Jwt);
+
+    _gateway = new GatewayClient(
+        _settings.GatewayBaseUrl,
+        jwt);
+
+    _notification = new NotificationClient(
+        _settings.NotificationBaseUrl);
+
+    _approval = new ApprovalClient(
+        _settings.ApprovalBaseUrl);
+}
 
     [Fact]
     public async Task HumanReviewInvoice_ApproveViaHitl_ReachesPaid()
