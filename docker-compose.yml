@@ -2,7 +2,7 @@ x-dapr-common: &dapr-common
   image: daprio/daprd:1.14.4
   volumes:
     - ./dapr/components:/dapr/components
-    - ./dapr/config.yaml:/dapr/config.yaml
+    - ./dapr/configs:/dapr/configs
     - ./dapr/secrets:/run/secrets
   depends_on:
     placement:
@@ -13,6 +13,8 @@ x-dapr-common: &dapr-common
       condition: service_healthy
     rabbitmq:
       condition: service_healthy
+    secrets-bootstrap:
+      condition: service_completed_successfully
 
 x-service-common: &service-common
   build:
@@ -35,6 +37,28 @@ x-service-common: &service-common
       condition: service_started
 
 services:
+  # ---------- One-shot bootstrap ----------
+  # Materializes dapr/secrets/secrets.json from secrets.example.json if the
+  # runtime file is absent. Keeps `docker compose up` working out-of-the-box
+  # without committing real secret values. Operators override individual
+  # entries via env vars picked up by the approvalflow-secretstore-env
+  # component (or replace the file entirely with real secrets).
+  secrets-bootstrap:
+    image: alpine:3.20
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        if [ ! -f /run/secrets/secrets.json ]; then
+          echo "[secrets-bootstrap] secrets.json missing — copying from secrets.example.json";
+          cp /run/secrets/secrets.example.json /run/secrets/secrets.json;
+        else
+          echo "[secrets-bootstrap] secrets.json already present — leaving untouched";
+        fi
+    volumes:
+      - ./dapr/secrets:/run/secrets
+
   # ---------- Infrastructure ----------
   postgres:
     image: postgres:16-alpine
@@ -119,6 +143,13 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
       OpenTelemetry__OtlpEndpoint: ""
+      # JWT settings: values are injected via environment at runtime rather
+      # than baked into images. Defaults keep local dev / E2E working; operators
+      # override GATEWAY_JWT_SIGNING_KEY (and issuer/audience) via shell env or
+      # a Docker secret when running elsewhere.
+      Jwt__Issuer:     "${GATEWAY_JWT_ISSUER:-approvalflow-dev}"
+      Jwt__Audience:   "${GATEWAY_JWT_AUDIENCE:-approvalflow-gateway}"
+      Jwt__SigningKey: "${GATEWAY_JWT_SIGNING_KEY:-development-signing-key-please-override-in-production-32bytes+}"
     ports:
       - "5100:8080"
     healthcheck:
@@ -147,7 +178,7 @@ services:
       - -components-path
       - /dapr/components
       - -config
-      - /dapr/config.yaml
+      - /dapr/configs/gateway.yaml
       - -log-level
       - info
     network_mode: "service:gateway"
@@ -203,7 +234,7 @@ services:
       - -components-path
       - /dapr/components
       - -config
-      - /dapr/config.yaml
+      - /dapr/configs/intake.yaml
       - -log-level
       - info
     network_mode: "service:intake"
@@ -259,7 +290,7 @@ services:
       - -components-path
       - /dapr/components
       - -config
-      - /dapr/config.yaml
+      - /dapr/configs/ai-decision.yaml
       - -log-level
       - info
     network_mode: "service:ai-decision"
@@ -317,7 +348,7 @@ services:
       - -components-path
       - /dapr/components
       - -config
-      - /dapr/config.yaml
+      - /dapr/configs/approval.yaml
       - -log-level
       - info
     network_mode: "service:approval"
@@ -373,7 +404,7 @@ services:
       - -components-path
       - /dapr/components
       - -config
-      - /dapr/config.yaml
+      - /dapr/configs/payment.yaml
       - -log-level
       - info
     network_mode: "service:payment"
@@ -431,7 +462,7 @@ services:
       - -components-path
       - /dapr/components
       - -config
-      - /dapr/config.yaml
+      - /dapr/configs/notification.yaml
       - -log-level
       - info
     network_mode: "service:notification"
@@ -487,7 +518,7 @@ services:
       - -components-path
       - /dapr/components
       - -config
-      - /dapr/config.yaml
+      - /dapr/configs/config-policy.yaml
       - -log-level
       - info
     network_mode: "service:config-policy"

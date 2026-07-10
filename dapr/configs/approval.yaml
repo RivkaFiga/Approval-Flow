@@ -1,0 +1,31 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: approvalflow-config
+spec:
+  tracing:
+    samplingRate: "1"
+    stdout: true
+  features:
+    - name: SchedulerReminders
+      enabled: true
+  # Only gateway may invoke approval, and only on paths under /approvals.
+  # Self-invocation is allowed because the Dapr Workflow engine dispatches
+  # activities to the same app-id via service invocation. See intake.yaml for
+  # the rationale on the spec-level allow.
+  accessControl:
+    defaultAction: allow
+    trustDomain: "public"
+    policies:
+      - appId: gateway
+        defaultAction: deny
+        trustDomain: "public"
+        namespace: "default"
+        operations:
+          - name: /approvals
+            httpVerb: ["GET", "POST"]
+            action: allow
+      - appId: approval
+        defaultAction: allow
+        trustDomain: "public"
+        namespace: "default"

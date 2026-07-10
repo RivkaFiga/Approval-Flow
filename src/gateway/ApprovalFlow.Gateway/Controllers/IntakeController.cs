@@ -1,11 +1,13 @@
 using ApprovalFlow.Contracts.Invocation.V1;
 using Dapr.Client;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ApprovalFlow.Gateway.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Policy = "Submitter")]
 public sealed class IntakeController : ControllerBase
 {
     private readonly DaprClient _dapr;
