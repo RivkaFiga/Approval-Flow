@@ -41,16 +41,77 @@ jobs:
       - name: Test - ConfigPolicy
         run: dotnet test src/services/config-policy/ApprovalFlow.ConfigPolicy.Tests/ApprovalFlow.ConfigPolicy.Tests.csproj --no-build --configuration Release --verbosity normal
 
+      - name: Build Docker images
+        run: docker compose build
+
       - name: Start stack (docker compose up --wait)
-        run: docker compose up -d --build --wait --wait-timeout 300
+        run: |
+          set -euo pipefail
+          # `secrets-bootstrap` is a one-shot init container (defined on main). `docker compose up --wait`
+          # returns non-zero when any service transitions to "exited" during its wait window — even when
+          # that exit is the expected outcome of a service_completed_successfully dependency
+          # (docker/compose#10596). Run the bootstrap to completion first, then wait only on the
+          # long-running services.
+          if docker compose config --services | grep -Fxq secrets-bootstrap; then
+            docker compose up secrets-bootstrap
+            long_running=$(docker compose config --services | grep -Fxv secrets-bootstrap | xargs)
+          else
+            long_running=$(docker compose config --services | xargs)
+          fi
+          docker compose up -d --wait --wait-timeout 300 $long_running
 
       - name: Test - E2E
-        run: dotnet test tests/ApprovalFlow.E2E/ApprovalFlow.E2E.csproj --no-build --configuration Release --verbosity normal
+        run: dotnet test tests/ApprovalFlow.E2E/ApprovalFlow.E2E.csproj --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed" --logger "trx;LogFileName=e2e-results.trx"
 
       - name: Dump compose logs on failure
         if: failure()
-        run: docker compose logs --no-color
+        run: |
+         echo "=== Docker containers ==="
+         docker compose ps
+
+         echo "=== E2E test artifacts ==="
+         find . -name "*.trx" -print
+
+         echo "=== E2E trx content ==="
+         find . -name "*.trx" -print -exec cat {} \;
+
+         echo "=== Compose logs ==="
+         docker compose logs
+
+         echo "=== Placement logs ==="
+         docker compose logs placement
+
+         echo "=== Scheduler logs ==="
+         docker compose logs scheduler
+
+         echo "=== Gateway logs ==="
+         docker compose logs gateway
+
+         echo "=== Intake logs ==="
+         docker compose logs intake
+
+         echo "=== Approval logs ==="
+         docker compose logs approval
+
+         echo "=== Notification logs ==="
+         docker compose logs notification
+
+         echo "=== AI Decision logs ==="
+         docker compose logs ai-decision
+
+         echo "=== Payment logs ==="
+         docker compose logs payment
+
+         echo "=== Config-Policy logs ==="
+         docker compose logs config-policy
+
+      - name: Upload E2E results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: "**/e2e-results.trx"
 
       - name: Tear down stack
         if: always()
-        run: docker compose down -v
+        run: docker compose down -v || true
