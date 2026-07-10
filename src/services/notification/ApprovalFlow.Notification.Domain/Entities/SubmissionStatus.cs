@@ -1,5 +1,6 @@
 using ApprovalFlow.Contracts.Enums;
 using ApprovalFlow.Notification.Domain.Rules;
+using SagaOutcome = ApprovalFlow.Contracts.Enums.PaymentOutcome;
 
 namespace ApprovalFlow.Notification.Domain.Entities;
 
@@ -99,6 +100,29 @@ public sealed class SubmissionStatus
         PaymentOutcome = paymentOutcome is null ? null : (int)paymentOutcome.Value;
         UpdatedAt = occurredAt;
     }
+
+    /// <summary>
+    /// <c>payment.completed</c>: resolves the terminal payment status. Called after <c>item.finalized</c>
+    /// has projected <see cref="LifecycleStatus.Paying"/>; advances to <see cref="LifecycleStatus.Paid"/> or
+    /// <see cref="LifecycleStatus.PaymentFailed"/> depending on the saga outcome. Idempotent by
+    /// monotonic <c>OccurredAt</c> (§10).
+    /// </summary>
+    public void ApplyPaymentCompleted(SagaOutcome outcome, string? reason, DateTimeOffset occurredAt)
+    {
+        if (!IsNewer(occurredAt)) return;
+        Status = (int)MapPaymentStatus(outcome);
+        PaymentOutcome = (int)outcome;
+        if (MapPaymentStatus(outcome) != LifecycleStatus.Paid && !string.IsNullOrWhiteSpace(reason))
+            Reason = reason;
+        UpdatedAt = occurredAt;
+    }
+
+    // SagaOutcome alias avoids the 'PaymentOutcome' property shadowing the same-named enum type.
+    private static LifecycleStatus MapPaymentStatus(SagaOutcome outcome) => outcome switch
+    {
+        SagaOutcome.Paid => LifecycleStatus.Paid,
+        _ => LifecycleStatus.PaymentFailed
+    };
 
     public LifecycleStatus CurrentStatus => (LifecycleStatus)Status;
     public Route? CurrentRoute => Route is null ? null : (Route)Route.Value;
