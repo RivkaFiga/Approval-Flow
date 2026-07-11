@@ -150,6 +150,9 @@ services:
       Jwt__Issuer:     "${GATEWAY_JWT_ISSUER:-approvalflow-dev}"
       Jwt__Audience:   "${GATEWAY_JWT_AUDIENCE:-approvalflow-gateway}"
       Jwt__SigningKey: "${GATEWAY_JWT_SIGNING_KEY:-development-signing-key-please-override-in-production-32bytes+}"
+      # YARP cluster — override appsettings default (localhost:5106) with the
+      # Docker service name so the gateway reaches notification inside the network.
+      ReverseProxy__Clusters__notification__Destinations__primary__Address: "http://notification:8080/"
     ports:
       - "5100:8080"
     healthcheck:
