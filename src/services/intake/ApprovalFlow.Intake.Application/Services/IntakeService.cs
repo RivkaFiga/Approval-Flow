@@ -67,7 +67,6 @@ public sealed class IntakeService
             dedupKey);
 
         await _repo.AddAsync(entity, ct);
-        await _repo.SaveChangesAsync(ct);
 
         var @event = new InvoiceSubmittedV1
         {
@@ -77,7 +76,9 @@ public sealed class IntakeService
             OccurredAt = DateTimeOffset.UtcNow
         };
 
+        // Publisher stages the event on the same DbContext; SaveChanges commits invoice + outbox atomically.
         await _publisher.PublishInvoiceSubmittedAsync(@event, ct);
+        await _repo.SaveChangesAsync(ct);
 
         return new SubmitInvoiceResponse
         {
