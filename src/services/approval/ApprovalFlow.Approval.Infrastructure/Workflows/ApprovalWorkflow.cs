@@ -82,9 +82,11 @@ public sealed class ApprovalWorkflow : Workflow<DecisionMadeV1, ItemFinalizedPub
         ApprovalPath path,
         string? approverComment)
     {
+        // Approved items use Paying (not Paid) so the Notification projection stays accurate until
+        // payment.completed confirms the actual outcome. Payment saga runs because PaymentOutcome is set.
         var (status, paymentOutcome) = input.Route switch
         {
-            Route.AutoApprove => (LifecycleStatus.Paid, (PaymentOutcome?)PaymentOutcome.Paid),
+            Route.AutoApprove => (LifecycleStatus.Paying, (PaymentOutcome?)PaymentOutcome.Paid),
             Route.Reject => (LifecycleStatus.Rejected, (PaymentOutcome?)null),
             Route.Duplicate => (LifecycleStatus.Duplicate, (PaymentOutcome?)null),
             _ => throw new InvalidOperationException(
@@ -99,7 +101,8 @@ public sealed class ApprovalWorkflow : Workflow<DecisionMadeV1, ItemFinalizedPub
             Reason = BuildReason(input, path, approverComment),
             PaymentOutcome = paymentOutcome,
             ApprovalPath = path,
-            AmountUsd = input.AmountUsd
+            AmountUsd = input.AmountUsd,
+            Department = input.Department
         };
     }
 
@@ -107,9 +110,10 @@ public sealed class ApprovalWorkflow : Workflow<DecisionMadeV1, ItemFinalizedPub
         DecisionMadeV1 input,
         ApproverDecisionEvent decision)
     {
+        // Same as AutoApprove: Paying until payment.completed confirms the outcome.
         var (status, paymentOutcome) = decision.Action switch
         {
-            ApproverActionType.Approve => (LifecycleStatus.Paid, (PaymentOutcome?)PaymentOutcome.Paid),
+            ApproverActionType.Approve => (LifecycleStatus.Paying, (PaymentOutcome?)PaymentOutcome.Paid),
             ApproverActionType.Reject => (LifecycleStatus.Rejected, (PaymentOutcome?)null),
             _ => throw new InvalidOperationException(
                 $"BuildHumanFinalized reached with non-terminal action {decision.Action}.")
@@ -123,7 +127,8 @@ public sealed class ApprovalWorkflow : Workflow<DecisionMadeV1, ItemFinalizedPub
             Reason = BuildReason(input, ApprovalPath.Human, decision.Comment),
             PaymentOutcome = paymentOutcome,
             ApprovalPath = ApprovalPath.Human,
-            AmountUsd = input.AmountUsd
+            AmountUsd = input.AmountUsd,
+            Department = input.Department
         };
     }
 
