@@ -44,21 +44,46 @@ jobs:
       - name: Build Docker images
         run: docker compose build
 
-      - name: Start stack (docker compose up --wait)
+      - name: Start stack
         run: |
           set -euo pipefail
-          # `secrets-bootstrap` is a one-shot init container (defined on main). `docker compose up --wait`
-          # returns non-zero when any service transitions to "exited" during its wait window — even when
-          # that exit is the expected outcome of a service_completed_successfully dependency
-          # (docker/compose#10596). Run the bootstrap to completion first, then wait only on the
-          # long-running services.
+          # `secrets-bootstrap` is a one-shot init container. `docker compose up --wait` returns
+          # non-zero whenever any service in the project is in "exited" state at wait time — even
+          # a successful one-shot completed via service_completed_successfully (docker/compose#10596).
+          # Filtering it out of the up args is not enough: sidecars depend on it, so compose
+          # (re)starts it transitively and --wait then trips on its exit.
+          # Bring the stack up in detached mode and health-poll the long-running services manually.
           if docker compose config --services | grep -Fxq secrets-bootstrap; then
             docker compose up secrets-bootstrap
             long_running=$(docker compose config --services | grep -Fxv secrets-bootstrap | xargs)
           else
             long_running=$(docker compose config --services | xargs)
           fi
-          docker compose up -d --wait --wait-timeout 300 $long_running
+          docker compose up -d $long_running
+
+          deadline=$(( $(date +%s) + 300 ))
+          while :; do
+            bad=""
+            for svc in $long_running; do
+              cid=$(docker compose ps -q "$svc" 2>/dev/null || true)
+              if [ -z "$cid" ]; then bad="$bad $svc(missing)"; continue; fi
+              state=$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo unknown)
+              if [ "$state" != "running" ]; then bad="$bad $svc(state=$state)"; continue; fi
+              health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || echo none)
+              if [ "$health" != "none" ] && [ "$health" != "healthy" ]; then bad="$bad $svc(health=$health)"; continue; fi
+            done
+            if [ -z "$bad" ]; then
+              echo "All long-running services healthy."
+              break
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "Timeout waiting for services:$bad"
+              docker compose ps
+              exit 1
+            fi
+            echo "Waiting for:$bad"
+            sleep 5
+          done
 
       - name: Test - E2E
         run: dotnet test tests/ApprovalFlow.E2E/ApprovalFlow.E2E.csproj --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed" --logger "trx;LogFileName=e2e-results.trx"
