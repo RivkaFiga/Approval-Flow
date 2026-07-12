@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ApprovalFlow</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --border: #d0d0d8;
+    --muted: #666;
+    --accent: #2952cc;
+    --bg-soft: #f4f5f8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    max-width: 640px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    line-height: 1.4;
+  }
+  h1 { margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); margin-top: 0; }
+  section {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  h2 { margin-top: 0; font-size: 1.05rem; }
+  .field { margin-bottom: 0.75rem; }
+  .row { display: flex; gap: 0.75rem; }
+  .row > .field { flex: 1; }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.2rem; }
+  input, select {
+    width: 100%;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.95rem;
+    background: transparent;
+    color: inherit;
+  }
+  input[type="checkbox"] { width: auto; }
+  .checkbox-field { display: flex; align-items: center; gap: 0.4rem; }
+  .checkbox-field label { margin-bottom: 0; }
+  small.hint { color: var(--muted); display: block; margin-top: 0.15rem; }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.55rem 1.1rem;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .error {
+    color: #b3261e;
+    background: #fdecea;
+    border: 1px solid #f3c2bd;
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    margin-top: 0.75rem;
+  }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 0.75rem; margin: 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; font-weight: 600; }
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: var(--bg-soft);
+    font-weight: 600;
+  }
+  code { background: var(--bg-soft); padding: 0.1rem 0.4rem; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <h1>ApprovalFlow</h1>
+  <p class="subtitle">Submit an expense, track its status, and see the final decision.</p>
+
+  <section id="submit-section">
+    <h2>1. Submit an expense</h2>
+    <form id="submit-form">
+      <div class="row">
+        <div class="field">
+          <label for="submitter">Submitter</label>
+          <input id="submitter" name="submitter" required value="demo.user@example.com">
+        </div>
+        <div class="field">
+          <label for="department">Department</label>
+          <input id="department" name="department" required value="engineering-2026Q2">
+          <small class="hint">Seeded budgets: engineering-2026Q2, marketing-2026Q2, sales-2026Q2</small>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="vendor">Vendor</label>
+          <input id="vendor" name="vendor" required value="Atlassian">
+        </div>
+        <div class="field">
+          <label for="invoiceNumber">Invoice number</label>
+          <input id="invoiceNumber" name="invoiceNumber" required>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="category">Category</label>
+          <select id="category" name="category">
+            <option value="0">Meals</option>
+            <option value="1" selected>SaaS</option>
+            <option value="2">Hardware</option>
+            <option value="3">Travel</option>
+            <option value="4">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="currency">Currency</label>
+          <input id="currency" name="currency" required maxlength="3" value="USD">
+        </div>
+        <div class="field">
+          <label for="attendees">Attendees</label>
+          <input id="attendees" name="attendees" type="number" min="1">
+          <small class="hint">Required for Meals</small>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex: 2;">
+          <label for="description">Line item description</label>
+          <input id="description" name="description" required value="Monthly subscription">
+        </div>
+        <div class="field">
+          <label for="quantity">Qty</label>
+          <input id="quantity" name="quantity" type="number" min="1" step="1" required value="1">
+        </div>
+        <div class="field">
+          <label for="unitPrice">Unit price</label>
+          <input id="unitPrice" name="unitPrice" type="number" min="0.01" step="0.01" required value="99">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="taxAmount">Tax amount</label>
+          <input id="taxAmount" name="taxAmount" type="number" min="0" step="0.01" required value="0">
+        </div>
+        <div class="field">
+          <label for="total">Total</label>
+          <input id="total" name="total" type="number" min="0.01" step="0.01" required value="99">
+          <small class="hint">Auto-computed as qty &times; unit price + tax; edit to override</small>
+        </div>
+        <div class="field">
+          <label for="date">Date</label>
+          <input id="date" name="date" type="date" required>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="checkbox-field field">
+          <input id="vendorKnown" name="vendorKnown" type="checkbox" checked>
+          <label for="vendorKnown">Vendor known</label>
+        </div>
+        <div class="checkbox-field field">
+          <input id="receiptPresent" name="receiptPresent" type="checkbox" checked>
+          <label for="receiptPresent">Receipt present</label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="notes">Notes (optional)</label>
+        <input id="notes" name="notes">
+      </div>
+
+      <button type="submit" id="submit-button">Submit</button>
+      <p id="submit-error" class="error" hidden></p>
+    </form>
+  </section>
+
+  <section id="status-section" hidden>
+    <h2>2. Current status</h2>
+    <p>Tracking ID: <code id="tracking-id"></code></p>
+    <p>Status: <span class="badge" id="current-status">&mdash;</span></p>
+  </section>
+
+  <section id="decision-section" hidden>
+    <h2>3. Final decision</h2>
+    <dl>
+      <dt>Route</dt><dd id="decision-route"></dd>
+      <dt>Reason</dt><dd id="decision-reason"></dd>
+      <dt>Amount (USD)</dt><dd id="decision-amount"></dd>
+      <dt>Payment outcome</dt><dd id="decision-payment"></dd>
+    </dl>
+  </section>
+
+<script>
+(function () {
+  // Wire values mirror the numeric ordering of the corresponding C# enums in
+  // ApprovalFlow.Contracts (System.Text.Json serializes enums as their ordinal by default).
+  const LIFECYCLE_STATUS = [
+    "Received", "Under review", "Awaiting approval", "Awaiting info",
+    "Paying", "Paid", "Rejected", "Payment failed", "Duplicate"
+  ];
+  const TERMINAL_STATUSES = new Set([5, 6, 7, 8]); // Paid, Rejected, PaymentFailed, Duplicate
+  const ROUTE = ["Auto-approved", "Human review", "Rejected", "Duplicate"];
+  const PAYMENT_OUTCOME = ["Paid", "Payment failed", "Insufficient budget"];
+
+  const POLL_INTERVAL_MS = 1500;
+  const POLL_TIMEOUT_MS = 60000;
+
+  let bearerToken = null;
+  let pollHandle = null;
+
+  const $ = (id) => document.getElementById(id);
+
+  async function ensureToken(sub) {
+    if (bearerToken) return bearerToken;
+    const res = await fetch('/dev/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sub: sub || 'ui-user', roles: ['submitter'] })
+    });
+    if (!res.ok) {
+      throw new Error('Could not obtain an auth token from /dev/token (only available when the Gateway runs in the Development environment).');
+    }
+    const data = await res.json();
+    bearerToken = data.token;
+    return bearerToken;
+  }
+
+  function describeError(status, problem) {
+    if (problem && problem.errors) {
+      return Object.values(problem.errors).flat().join(' ');
+    }
+    if (problem && problem.detail) return problem.detail;
+    if (problem && problem.title) return problem.title;
+    return `Request failed with status ${status}.`;
+  }
+
+  function showError(message) {
+    const el = $('submit-error');
+    el.textContent = message;
+    el.hidden = false;
+  }
+
+  function hideError() {
+    $('submit-error').hidden = true;
+  }
+
+  function recomputeTotal() {
+    const qty = Number($('quantity').value) || 0;
+    const unitPrice = Number($('unitPrice').value) || 0;
+    const tax = Number($('taxAmount').value) || 0;
+    $('total').value = (qty * unitPrice + tax).toFixed(2);
+  }
+
+  ['quantity', 'unitPrice', 'taxAmount'].forEach((id) => {
+    $(id).addEventListener('input', recomputeTotal);
+  });
+
+  function initDefaults() {
+    $('date').value = new Date().toISOString().slice(0, 10);
+    $('invoiceNumber').value = 'INV-' + Date.now();
+  }
+
+  function buildInvoice(form) {
+    const attendeesRaw = form.attendees.value;
+    return {
+      invoiceNumber: form.invoiceNumber.value.trim(),
+      vendor: form.vendor.value.trim(),
+      vendorKnown: form.vendorKnown.checked,
+      submitter: form.submitter.value.trim(),
+      department: form.department.value.trim(),
+      category: Number(form.category.value),
+      currency: form.currency.value.trim().toUpperCase(),
+      lineItems: [{
+        description: form.description.value.trim(),
+        quantity: Number(form.quantity.value),
+        unitPrice: Number(form.unitPrice.value)
+      }],
+      taxAmount: Number(form.taxAmount.value),
+      total: Number(form.total.value),
+      receiptPresent: form.receiptPresent.checked,
+      attendees: attendeesRaw ? Number(attendeesRaw) : null,
+      date: form.date.value,
+      notes: form.notes.value.trim() || null
+    };
+  }
+
+  function resetResultSections() {
+    if (pollHandle) {
+      clearInterval(pollHandle);
+      pollHandle = null;
+    }
+    $('status-section').hidden = true;
+    $('decision-section').hidden = true;
+  }
+
+  function showStatusSection(trackingId) {
+    $('tracking-id').textContent = trackingId;
+    $('current-status').textContent = 'Received';
+    $('status-section').hidden = false;
+  }
+
+  function showDecision(status) {
+    $('decision-route').textContent = status.route != null ? ROUTE[status.route] : '—';
+    $('decision-reason').textContent = status.reason || '—';
+    $('decision-amount').textContent = status.amountUsd != null ? status.amountUsd : '—';
+    $('decision-payment').textContent = status.paymentOutcome != null ? PAYMENT_OUTCOME[status.paymentOutcome] : '—';
+    $('decision-section').hidden = false;
+  }
+
+  function startPolling(trackingId, token) {
+    const startedAt = Date.now();
+    pollHandle = setInterval(async () => {
+      if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+        clearInterval(pollHandle);
+        pollHandle = null;
+        $('current-status').textContent = 'Still processing — stopped auto-refresh after 60s, reload the page to keep checking.';
+        return;
+      }
+      try {
+        const res = await fetch(`/api/status/${trackingId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return; // 404 (projection not created yet) or transient error: try again next tick
+        const status = await res.json();
+        $('current-status').textContent = LIFECYCLE_STATUS[status.status] ?? `Unknown (${status.status})`;
+        if (TERMINAL_STATUSES.has(status.status)) {
+          clearInterval(pollHandle);
+          pollHandle = null;
+          showDecision(status);
+        }
+      } catch {
+        // Transient network hiccup; keep polling until the timeout.
+      }
+    }, POLL_INTERVAL_MS);
+  }
+
+  $('submit-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    hideError();
+    resetResultSections();
+
+    const form = event.target;
+    const invoice = buildInvoice(form);
+    const button = $('submit-button');
+    button.disabled = true;
+
+    try {
+      const token = await ensureToken(invoice.submitter);
+      const res = await fetch('/api/intake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ invoice })
+      });
+      if (!res.ok) {
+        const problem = await res.json().catch(() => null);
+        throw new Error(describeError(res.status, problem));
+      }
+      const submitResult = await res.json();
+      showStatusSection(submitResult.trackingId);
+      startPolling(submitResult.trackingId, token);
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  initDefaults();
+})();
+</script>
+</body>
+</html>

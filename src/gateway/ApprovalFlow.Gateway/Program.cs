@@ -78,6 +78,9 @@ var app = builder.Build();
 
 app.UseServiceDefaults();
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 

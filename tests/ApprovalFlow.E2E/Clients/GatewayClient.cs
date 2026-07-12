@@ -37,4 +37,12 @@ internal sealed class GatewayClient
         var result = await response.Content.ReadFromJsonAsync<SubmitInvoiceResponse>(_json, ct);
         return result ?? throw new InvalidOperationException("Empty response body from POST /api/intake.");
     }
+
+    /// <summary>Fetches the minimal UI's home page, confirming the Gateway serves it as static content.</summary>
+    public async Task<string> GetHomePageHtmlAsync(CancellationToken ct)
+    {
+        var response = await _http.GetAsync("/", ct);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync(ct);
+    }
 }

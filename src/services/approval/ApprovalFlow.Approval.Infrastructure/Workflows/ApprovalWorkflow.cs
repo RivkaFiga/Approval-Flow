@@ -99,7 +99,8 @@ public sealed class ApprovalWorkflow : Workflow<DecisionMadeV1, ItemFinalizedPub
             Reason = BuildReason(input, path, approverComment),
             PaymentOutcome = paymentOutcome,
             ApprovalPath = path,
-            AmountUsd = input.AmountUsd
+            AmountUsd = input.AmountUsd,
+            Department = input.Department
         };
     }
 
@@ -123,7 +124,8 @@ public sealed class ApprovalWorkflow : Workflow<DecisionMadeV1, ItemFinalizedPub
             Reason = BuildReason(input, ApprovalPath.Human, decision.Comment),
             PaymentOutcome = paymentOutcome,
             ApprovalPath = ApprovalPath.Human,
-            AmountUsd = input.AmountUsd
+            AmountUsd = input.AmountUsd,
+            Department = input.Department
         };
     }
 

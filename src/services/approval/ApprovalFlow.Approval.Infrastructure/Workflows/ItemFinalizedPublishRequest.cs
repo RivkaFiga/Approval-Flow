@@ -15,4 +15,5 @@ public sealed record ItemFinalizedPublishRequest
     public PaymentOutcome? PaymentOutcome { get; init; }
     public ApprovalPath ApprovalPath { get; init; }
     public decimal AmountUsd { get; init; }
+    public string Department { get; init; } = string.Empty;
 }
