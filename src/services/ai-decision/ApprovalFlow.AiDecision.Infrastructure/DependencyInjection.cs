@@ -30,6 +30,8 @@ public static class DependencyInjection
         services.AddSingleton<DaprConfigPolicySnapshotProvider>();
         services.AddSingleton<IPolicySnapshotProvider>(sp =>
             sp.GetRequiredService<DaprConfigPolicySnapshotProvider>());
+        services.AddSingleton<IPolicySnapshotRefresher>(sp =>
+            sp.GetRequiredService<DaprConfigPolicySnapshotProvider>());
         services.AddSingleton<IPolicyAgent, StubPolicyAgent>();
         services.AddScoped<DecideInvoiceService>();
 

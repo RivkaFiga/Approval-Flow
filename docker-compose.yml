@@ -495,6 +495,8 @@ services:
       ASPNETCORE_URLS: http://+:8080
       OpenTelemetry__OtlpEndpoint: ""
       ConnectionStrings__ConfigPolicyDb: "Host=postgres;Port=5432;Database=approvalflow;Username=postgres;Password=postgres"
+    ports:
+      - "5108:8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/healthz && curl -fsS http://localhost:3500/v1.0/healthz"]
       interval: 10s
