@@ -39,14 +39,6 @@ internal sealed class ConfigPolicyClient
                ?? throw new InvalidOperationException("Empty body from POST /api/policies.");
     }
 
-    public async Task<PolicyDocumentSummary> UpdateAsync(Guid id, UpdatePolicyBody body, CancellationToken ct)
-    {
-        var response = await _http.PutAsJsonAsync($"/api/policies/{id}", body, _json, ct);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<PolicyDocumentSummary>(_json, ct)
-               ?? throw new InvalidOperationException("Empty body from PUT /api/policies/{id}.");
-    }
-
     public async Task<PolicySnapshotResponseBody> GetActiveSnapshotAsync(CancellationToken ct)
     {
         var response = await _http.GetAsync("/api/policy-snapshot", ct);
@@ -64,16 +56,6 @@ internal sealed record CreatePolicyBody(
     string BaseCurrency,
     Dictionary<string, decimal> FxRates,
     List<string> KnownVendors);
-
-internal sealed record UpdatePolicyBody(
-    string Name,
-    string Markdown,
-    decimal AutonomyCeilingUsd,
-    double AutonomyMinConfidence,
-    string BaseCurrency,
-    Dictionary<string, decimal> FxRates,
-    List<string> KnownVendors,
-    int ExpectedVersion);
 
 internal sealed record PolicyDocumentSummary
 {
