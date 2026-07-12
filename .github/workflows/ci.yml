@@ -47,38 +47,47 @@ jobs:
       - name: Start stack
         run: |
           set -euo pipefail
-          # `secrets-bootstrap` is a one-shot init container. `docker compose up --wait` returns
-          # non-zero whenever any service in the project is in "exited" state at wait time — even
-          # a successful one-shot completed via service_completed_successfully (docker/compose#10596).
-          # Filtering it out of the up args is not enough: sidecars depend on it, so compose
-          # (re)starts it transitively and --wait then trips on its exit.
-          # Bring the stack up in detached mode and health-poll the long-running services manually.
-          if docker compose config --services | grep -Fxq secrets-bootstrap; then
-            docker compose up secrets-bootstrap
-            long_running=$(docker compose config --services | grep -Fxv secrets-bootstrap | xargs)
-          else
-            long_running=$(docker compose config --services | xargs)
-          fi
-          docker compose up -d $long_running
+          # `docker compose up --wait` returns non-zero whenever any service is in "exited" state at
+          # wait time — even a successful one-shot completed via service_completed_successfully
+          # (docker/compose#10596). One-shot init containers (e.g. secrets-bootstrap) are pulled in
+          # transitively by sidecar `depends_on`, so filtering by name doesn't scale. Bring the stack
+          # up detached and poll every service: `running` must be healthy (or health-less), `exited`
+          # must have returned 0 (successful one-shot).
+          services=$(docker compose config --services | tr -d '\r' | xargs)
+          docker compose up -d $services
 
           deadline=$(( $(date +%s) + 300 ))
           while :; do
             bad=""
-            for svc in $long_running; do
-              cid=$(docker compose ps -q "$svc" 2>/dev/null || true)
+            for svc in $services; do
+              cid=$(docker compose ps -aq "$svc" 2>/dev/null | head -n1)
               if [ -z "$cid" ]; then bad="$bad $svc(missing)"; continue; fi
               state=$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo unknown)
-              if [ "$state" != "running" ]; then bad="$bad $svc(state=$state)"; continue; fi
-              health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || echo none)
-              if [ "$health" != "none" ] && [ "$health" != "healthy" ]; then bad="$bad $svc(health=$health)"; continue; fi
+              case "$state" in
+                running)
+                  health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || echo none)
+                  if [ "$health" != "none" ] && [ "$health" != "healthy" ]; then
+                    bad="$bad $svc(health=$health)"
+                  fi
+                  ;;
+                exited)
+                  code=$(docker inspect -f '{{.State.ExitCode}}' "$cid" 2>/dev/null || echo -1)
+                  if [ "$code" != "0" ]; then
+                    bad="$bad $svc(exited=$code)"
+                  fi
+                  ;;
+                *)
+                  bad="$bad $svc(state=$state)"
+                  ;;
+              esac
             done
             if [ -z "$bad" ]; then
-              echo "All long-running services healthy."
+              echo "All services healthy (long-running: healthy; one-shots: exited 0)."
               break
             fi
             if [ "$(date +%s)" -ge "$deadline" ]; then
               echo "Timeout waiting for services:$bad"
-              docker compose ps
+              docker compose ps -a
               exit 1
             fi
             echo "Waiting for:$bad"
