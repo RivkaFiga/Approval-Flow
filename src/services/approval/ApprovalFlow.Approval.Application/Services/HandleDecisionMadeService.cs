@@ -5,9 +5,15 @@ using Microsoft.Extensions.Logging;
 namespace ApprovalFlow.Approval.Application.Services;
 
 /// <summary>
-/// Workflow launcher for <c>decision.made</c> (§9): schedules a durable Dapr Workflow instance for fresh
-/// events; skips redeliveries by checking for an existing <see cref="IWorkflowInstanceRepository"/> entry.
-/// Persistence and publishing live inside the workflow itself (via activities).
+/// Handles one <c>decision.made</c> event (§9) by scheduling the durable <c>ApprovalWorkflow</c> keyed
+/// by <c>trackingId</c>. The workflow owns persistence (<see cref="Ports.IWorkflowInstanceRepository"/>)
+/// and event publishing (<c>review.status</c>, <c>item.finalized</c>) so the HITL resume path can raise
+/// <c>ApprovalDecision</c> on the same durable instance keyed by <c>trackingId</c>.
+///
+/// Idempotent by <c>trackingId</c>: a redelivered <c>decision.made</c> for an already-tracked item is a
+/// no-op (§10). Same-instance re-scheduling is also swallowed inside
+/// <see cref="IApprovalWorkflowScheduler"/> so a race between the DB check and Dapr's own uniqueness
+/// arbitration does not surface as a failure.
 /// </summary>
 public sealed class HandleDecisionMadeService
 {
@@ -38,7 +44,7 @@ public sealed class HandleDecisionMadeService
         await _scheduler.ScheduleAsync(@event, ct);
 
         _logger.LogInformation(
-            "Scheduled workflow for TrackingId {TrackingId} (route {Route}).",
+            "Scheduled ApprovalWorkflow for TrackingId {TrackingId} (route {Route}).",
             @event.TrackingId, @event.Route);
     }
 }
