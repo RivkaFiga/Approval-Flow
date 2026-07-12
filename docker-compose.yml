@@ -100,10 +100,13 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      # check_port_connectivity verifies the AMQP listener is accepting connections,
+      # not just that the Erlang node is up (which "ping" only does).
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 10s
       timeout: 10s
       retries: 10
+      start_period: 15s
 
   # ---------- Dapr control plane ----------
   placement:
