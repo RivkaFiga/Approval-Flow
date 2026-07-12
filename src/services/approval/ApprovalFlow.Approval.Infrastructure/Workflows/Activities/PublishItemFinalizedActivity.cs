@@ -25,7 +25,8 @@ public sealed class PublishItemFinalizedActivity : WorkflowActivity<ItemFinalize
             Reason = input.Reason,
             PaymentOutcome = input.PaymentOutcome,
             ApprovalPath = input.ApprovalPath,
-            AmountUsd = input.AmountUsd
+            AmountUsd = input.AmountUsd,
+            Department = input.Department
         };
         await _publisher.PublishItemFinalizedAsync(@event);
         return null;

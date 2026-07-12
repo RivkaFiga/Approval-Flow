@@ -1,4 +1,4 @@
-using ApprovalFlow.Approval.Application.Services;
+using ApprovalFlow.Approval.Application.Ports;
 using ApprovalFlow.Contracts.Events;
 using ApprovalFlow.Contracts.Events.V1;
 using Dapr;
@@ -8,8 +8,10 @@ using Serilog.Context;
 namespace ApprovalFlow.Approval.Api.Subscribers;
 
 /// <summary>
-/// Dapr pub/sub subscription for <c>decision.made</c> (§5.2). Delegates the full ingest/decide/publish
-/// pipeline to <see cref="HandleDecisionMadeService"/>. Idempotent by <c>trackingId</c> (§10).
+/// Dapr pub/sub subscription for <c>decision.made</c> (§5.2). Schedules a durable
+/// <see cref="ApprovalFlow.Approval.Infrastructure.Workflows.ApprovalWorkflow"/> instance keyed by
+/// <c>trackingId</c> via <see cref="IApprovalWorkflowScheduler"/>. Idempotent by <c>trackingId</c> (§10) —
+/// the scheduler swallows "already exists" so a redelivery is a no-op.
 /// </summary>
 [ApiController]
 [Route("events")]
@@ -17,14 +19,14 @@ public sealed class DecisionMadeSubscriber : ControllerBase
 {
     private const string PubSubName = "approvalflow-pubsub";
 
-    private readonly HandleDecisionMadeService _service;
+    private readonly IApprovalWorkflowScheduler _scheduler;
     private readonly ILogger<DecisionMadeSubscriber> _logger;
 
     public DecisionMadeSubscriber(
-        HandleDecisionMadeService service,
+        IApprovalWorkflowScheduler scheduler,
         ILogger<DecisionMadeSubscriber> logger)
     {
-        _service = service;
+        _scheduler = scheduler;
         _logger = logger;
     }
 
@@ -38,9 +40,9 @@ public sealed class DecisionMadeSubscriber : ControllerBase
         using (LogContext.PushProperty("TrackingId", @event.TrackingId))
         {
             _logger.LogInformation(
-                "Received decision.made for TrackingId {TrackingId} (route {Route}).",
+                "Scheduling ApprovalWorkflow for TrackingId {TrackingId} (route {Route}).",
                 @event.TrackingId, @event.Route);
-            await _service.HandleAsync(@event, ct);
+            await _scheduler.ScheduleAsync(@event, ct);
         }
         return Ok();
     }

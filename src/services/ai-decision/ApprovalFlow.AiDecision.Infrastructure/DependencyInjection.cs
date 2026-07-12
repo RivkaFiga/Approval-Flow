@@ -30,9 +30,37 @@ public static class DependencyInjection
         services.AddSingleton<DaprConfigPolicySnapshotProvider>();
         services.AddSingleton<IPolicySnapshotProvider>(sp =>
             sp.GetRequiredService<DaprConfigPolicySnapshotProvider>());
-        services.AddSingleton<IPolicyAgent, StubPolicyAgent>();
+        services.AddSingleton<IPolicySnapshotRefresher>(sp =>
+            sp.GetRequiredService<DaprConfigPolicySnapshotProvider>());
         services.AddScoped<DecideInvoiceService>();
 
+        RegisterPolicyAgent(services, configuration);
+
         return services;
+    }
+
+    private static void RegisterPolicyAgent(IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<GeminiOptions>(configuration.GetSection(GeminiOptions.SectionName));
+
+        var geminiSection = configuration.GetSection(GeminiOptions.SectionName);
+        var useStub = geminiSection.GetValue("UseStub", defaultValue: true);
+        var hasApiKey = !string.IsNullOrWhiteSpace(geminiSection["ApiKey"]);
+
+        if (useStub)
+        {
+            services.AddSingleton<IPolicyAgent, StubPolicyAgent>();
+            return;
+        }
+
+        if (!hasApiKey)
+        {
+            throw new InvalidOperationException(
+                "Gemini:UseStub is false but Gemini:ApiKey is not configured. " +
+                "Set the GEMINI__APIKEY environment variable or add Gemini:ApiKey to appsettings.");
+        }
+
+        services.AddHttpClient(GeminiPolicyAgent.HttpClientName);
+        services.AddSingleton<IPolicyAgent, GeminiPolicyAgent>();
     }
 }

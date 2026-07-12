@@ -2,6 +2,7 @@ using System.Text.Json;
 using ApprovalFlow.Approval.Application.Ports;
 using ApprovalFlow.Contracts.Enums;
 using ApprovalFlow.Contracts.Invocation.V1;
+using ApprovalFlow.Contracts.Models;
 using Microsoft.AspNetCore.Mvc;
 using Serilog.Context;
 
@@ -52,7 +53,8 @@ public sealed class ApprovalsController : ControllerBase
                 CorrelationId = x.CorrelationId,
                 AgentRecommendation = (Recommendation)x.AgentRecommendation,
                 Confidence = x.Confidence,
-                CitedRuleIds = JsonSerializer.Deserialize<List<string>>(x.CitedRulesJson) ?? [],
+                CitedRuleIds = JsonSerializer.Deserialize<List<PolicyViolation>>(x.CitedRulesJson)
+                                   ?.Select(v => v.RuleId).ToList() ?? [],
                 AmountUsd = x.AmountUsd,
                 Department = x.Department,
                 EscalatedAt = x.EscalatedAt

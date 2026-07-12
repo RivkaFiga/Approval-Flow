@@ -41,16 +41,111 @@ jobs:
       - name: Test - ConfigPolicy
         run: dotnet test src/services/config-policy/ApprovalFlow.ConfigPolicy.Tests/ApprovalFlow.ConfigPolicy.Tests.csproj --no-build --configuration Release --verbosity normal
 
-      - name: Start stack (docker compose up --wait)
-        run: docker compose up -d --build --wait --wait-timeout 300
+      - name: Build Docker images
+        run: docker compose build
+
+      - name: Start stack
+        run: |
+          set -euo pipefail
+          # `docker compose up --wait` returns non-zero whenever any service is in "exited" state at
+          # wait time — even a successful one-shot completed via service_completed_successfully
+          # (docker/compose#10596). One-shot init containers (e.g. secrets-bootstrap) are pulled in
+          # transitively by sidecar `depends_on`, so filtering by name doesn't scale. Bring the stack
+          # up detached and poll every service: `running` must be healthy (or health-less), `exited`
+          # must have returned 0 (successful one-shot).
+          services=$(docker compose config --services | tr -d '\r' | xargs)
+          docker compose up -d $services
+
+          deadline=$(( $(date +%s) + 300 ))
+          while :; do
+            bad=""
+            for svc in $services; do
+              cid=$(docker compose ps -aq "$svc" 2>/dev/null | head -n1)
+              if [ -z "$cid" ]; then bad="$bad $svc(missing)"; continue; fi
+              state=$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo unknown)
+              case "$state" in
+                running)
+                  health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || echo none)
+                  if [ "$health" != "none" ] && [ "$health" != "healthy" ]; then
+                    bad="$bad $svc(health=$health)"
+                  fi
+                  ;;
+                exited)
+                  code=$(docker inspect -f '{{.State.ExitCode}}' "$cid" 2>/dev/null || echo -1)
+                  if [ "$code" != "0" ]; then
+                    bad="$bad $svc(exited=$code)"
+                  fi
+                  ;;
+                *)
+                  bad="$bad $svc(state=$state)"
+                  ;;
+              esac
+            done
+            if [ -z "$bad" ]; then
+              echo "All services healthy (long-running: healthy; one-shots: exited 0)."
+              break
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "Timeout waiting for services:$bad"
+              docker compose ps -a
+              exit 1
+            fi
+            echo "Waiting for:$bad"
+            sleep 5
+          done
 
       - name: Test - E2E
-        run: dotnet test tests/ApprovalFlow.E2E/ApprovalFlow.E2E.csproj --no-build --configuration Release --verbosity normal
+        run: dotnet test tests/ApprovalFlow.E2E/ApprovalFlow.E2E.csproj --no-build --configuration Release --verbosity normal --logger "console;verbosity=detailed" --logger "trx;LogFileName=e2e-results.trx"
 
       - name: Dump compose logs on failure
         if: failure()
-        run: docker compose logs --no-color
+        run: |
+         echo "=== Docker containers ==="
+         docker compose ps
+
+         echo "=== E2E test artifacts ==="
+         find . -name "*.trx" -print
+
+         echo "=== E2E trx content ==="
+         find . -name "*.trx" -print -exec cat {} \;
+
+         echo "=== Compose logs ==="
+         docker compose logs
+
+         echo "=== Placement logs ==="
+         docker compose logs placement
+
+         echo "=== Scheduler logs ==="
+         docker compose logs scheduler
+
+         echo "=== Gateway logs ==="
+         docker compose logs gateway
+
+         echo "=== Intake logs ==="
+         docker compose logs intake
+
+         echo "=== Approval logs ==="
+         docker compose logs approval
+
+         echo "=== Notification logs ==="
+         docker compose logs notification
+
+         echo "=== AI Decision logs ==="
+         docker compose logs ai-decision
+
+         echo "=== Payment logs ==="
+         docker compose logs payment
+
+         echo "=== Config-Policy logs ==="
+         docker compose logs config-policy
+
+      - name: Upload E2E results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: "**/e2e-results.trx"
 
       - name: Tear down stack
         if: always()
-        run: docker compose down -v
+        run: docker compose down -v || true
