@@ -23,8 +23,7 @@ public sealed class ConfigPolicyDbContext : DbContext
             e.Property(p => p.Markdown).IsRequired();
             e.Property(p => p.AutonomyCeilingUsd).HasPrecision(18, 2);
             e.Property(p => p.BaseCurrency).HasMaxLength(3).IsRequired();
-            e.Property(p => p.Version).IsConcurrencyToken();
-            e.Property(p => p.RowVersion).IsRowVersion();
+            e.Property(p => p.Version).IsRequired();
 
             e.HasMany(p => p.FxRates)
                 .WithOne()

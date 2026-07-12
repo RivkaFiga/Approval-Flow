@@ -9,7 +9,6 @@ public sealed class PolicyDocument
     public double AutonomyMinConfidence { get; private set; }
     public string BaseCurrency { get; private set; } = "USD";
     public int Version { get; private set; }
-    public uint RowVersion { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
     public bool IsActive { get; private set; }
