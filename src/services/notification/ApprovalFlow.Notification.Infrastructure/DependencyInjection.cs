@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<HandleDecisionMadeService>();
         services.AddScoped<HandleReviewStatusService>();
         services.AddScoped<HandleItemFinalizedService>();
+        services.AddScoped<HandlePaymentCompletedService>();
         services.AddScoped<GetSubmissionStatusService>();
 
         return services;

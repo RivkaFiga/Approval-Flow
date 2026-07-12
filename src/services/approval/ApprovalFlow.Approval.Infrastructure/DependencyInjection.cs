@@ -1,5 +1,4 @@
 using ApprovalFlow.Approval.Application.Ports;
-using ApprovalFlow.Approval.Application.Services;
 using ApprovalFlow.Approval.Infrastructure.Events;
 using ApprovalFlow.Approval.Infrastructure.Persistence;
 using ApprovalFlow.Approval.Infrastructure.Workflows;
@@ -28,8 +27,6 @@ public static class DependencyInjection
 
         services.AddScoped<IApprovalWorkflowScheduler, DaprApprovalWorkflowScheduler>();
         services.AddScoped<IApprovalWorkflowEventRaiser, DaprApprovalWorkflowEventRaiser>();
-
-        services.AddScoped<HandleDecisionMadeService>();
 
         services.AddDaprWorkflow(options =>
         {

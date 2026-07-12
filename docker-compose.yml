@@ -100,15 +100,16 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      # check_port_connectivity verifies the AMQP listener is accepting connections,
-      # not just that the Erlang node is up (which "ping" only does).
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 10s
       timeout: 10s
       retries: 10
-      start_period: 15s
+      start_period: 20s
 
   # ---------- Dapr control plane ----------
+  # Note: no healthcheck — the daprio/dapr image is distroless (no bash, no /dev/tcp, no nc), so
+  # container-side probes aren't feasible. Sidecars depend on service_started; daprd retries its
+  # placement/scheduler connections internally, so a brief startup race is handled by Dapr.
   placement:
     image: daprio/dapr:1.14.4
     command: ["./placement", "-port", "50006"]
@@ -149,13 +150,17 @@ services:
       Jwt__Issuer:     "${GATEWAY_JWT_ISSUER:-approvalflow-dev}"
       Jwt__Audience:   "${GATEWAY_JWT_AUDIENCE:-approvalflow-gateway}"
       Jwt__SigningKey: "${GATEWAY_JWT_SIGNING_KEY:-development-signing-key-please-override-in-production-32bytes+}"
+      # YARP cluster — override appsettings default (localhost:5106) with the
+      # Docker service name so the gateway reaches notification inside the network.
+      ReverseProxy__Clusters__notification__Destinations__primary__Address: "http://notification:8080/"
     ports:
       - "5100:8080"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/healthz && curl -fsS http://localhost:3500/v1.0/healthz"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 15
+      start_period: 15s
 
   gateway-dapr:
     <<: *dapr-common
@@ -207,10 +212,11 @@ services:
       OpenTelemetry__OtlpEndpoint: ""
       ConnectionStrings__IntakeDb: "Host=postgres;Port=5432;Database=approvalflow;Username=postgres;Password=postgres"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/healthz && curl -fsS http://localhost:3500/v1.0/healthz"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 15
+      start_period: 15s
 
   intake-dapr:
     <<: *dapr-common
@@ -262,10 +268,11 @@ services:
       OpenTelemetry__OtlpEndpoint: ""
       ConnectionStrings__AiDecisionDb: "Host=postgres;Port=5432;Database=approvalflow;Username=postgres;Password=postgres"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/healthz && curl -fsS http://localhost:3500/v1.0/healthz"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 15
+      start_period: 15s
 
   ai-decision-dapr:
     <<: *dapr-common
@@ -319,10 +326,11 @@ services:
     ports:
      - "5102:8080"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/healthz && curl -fsS http://localhost:3500/v1.0/healthz"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 15
+      start_period: 15s
 
   approval-dapr:
     <<: *dapr-common
@@ -374,10 +382,11 @@ services:
       OpenTelemetry__OtlpEndpoint: ""
       ConnectionStrings__PaymentDb: "Host=postgres;Port=5432;Database=approvalflow;Username=postgres;Password=postgres"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/healthz && curl -fsS http://localhost:3500/v1.0/healthz"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 15
+      start_period: 15s
 
   payment-dapr:
     <<: *dapr-common
@@ -431,10 +440,11 @@ services:
     ports:
       - "5106:8080"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/healthz && curl -fsS http://localhost:3500/v1.0/healthz"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 15
+      start_period: 15s
 
   notification-dapr:
     <<: *dapr-common
@@ -485,11 +495,14 @@ services:
       ASPNETCORE_URLS: http://+:8080
       OpenTelemetry__OtlpEndpoint: ""
       ConnectionStrings__ConfigPolicyDb: "Host=postgres;Port=5432;Database=approvalflow;Username=postgres;Password=postgres"
+    ports:
+      - "5108:8080"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/healthz && curl -fsS http://localhost:3500/v1.0/healthz"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 15
+      start_period: 15s
 
   config-policy-dapr:
     <<: *dapr-common

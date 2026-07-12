@@ -44,8 +44,15 @@ public sealed class InvoiceFlowTests
         Assert.Fail($"Gateway /healthz did not return healthy within {_settings.HealthTimeoutSeconds}s.");
     }
 
+    /// <summary>
+    /// End-to-end auto-approve payment lifecycle:
+    /// 1. Submit → decision.made(AutoApprove)
+    /// 2. Approval workflow emits item.finalized(Paying) — no synthetic Paid yet
+    /// 3. Payment saga runs → payment.completed(Paid)
+    /// 4. Notification projects Paid only after payment.completed arrives
+    /// </summary>
     [Fact]
-    public async Task AutoApproveInvoice_FullFlow_ReachesTerminalState()
+    public async Task AutoApproveInvoice_FullFlow_ReachesPaidAfterPaymentConfirms()
     {
         var fixtures = FixtureLoader.Load("sample-invoices.json");
         var fixture  = fixtures.First(f => f.Expected.Route == "auto_approve");
@@ -66,6 +73,12 @@ public sealed class InvoiceFlowTests
         Assert.True(
             IsTerminal(finalStatus.Status),
             $"Fixture {fixture.Id}: expected terminal state (Paid/Rejected/PaymentFailed/Duplicate), got {finalStatus.Status}.");
+
+
+        // Auto-approved items must end Paid (budget must have headroom for the fixture amount).
+        Assert.Equal(LifecycleStatus.Paid, finalStatus.Status);
+        // PaymentOutcome.Paid is only set by payment.completed — confirms the saga ran and succeeded.
+        Assert.Equal(PaymentOutcome.Paid, finalStatus.PaymentOutcome);
     }
 
     // LifecycleStatus.Paid       → PaymentCompleted

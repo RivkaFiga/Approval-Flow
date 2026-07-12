@@ -15,5 +15,7 @@ public sealed record ItemFinalizedPublishRequest
     public PaymentOutcome? PaymentOutcome { get; init; }
     public ApprovalPath ApprovalPath { get; init; }
     public decimal AmountUsd { get; init; }
+
+    /// <summary>Owning department budget key (§8). Populated for payment-eligible items; empty otherwise.</summary>
     public string Department { get; init; } = string.Empty;
 }

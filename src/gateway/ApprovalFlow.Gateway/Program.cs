@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using System.Text;
 using ApprovalFlow.Gateway;
+using System.Threading.RateLimiting;
 using ApprovalFlow.ServiceDefaults.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -69,9 +71,52 @@ builder.Services
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("Submitter", p => p.RequireAuthenticatedUser().RequireRole("submitter", "admin"));
-    options.AddPolicy("Approver", p => p.RequireAuthenticatedUser().RequireRole("approver", "admin"));
-    options.AddPolicy("Admin", p => p.RequireAuthenticatedUser().RequireRole("admin"));
+    options.AddPolicy("Submitter",     p => p.RequireAuthenticatedUser().RequireRole("submitter", "admin"));
+    options.AddPolicy("Approver",      p => p.RequireAuthenticatedUser().RequireRole("approver", "admin"));
+    options.AddPolicy("Admin",         p => p.RequireAuthenticatedUser().RequireRole("admin"));
+    options.AddPolicy("Authenticated", p => p.RequireAuthenticatedUser());
+});
+
+// YARP — routes the /api/status passthrough directly to the notification service,
+// bypassing Dapr for this simple read-only proxy.
+builder.Services.AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+
+// Rate limiting — global fixed-window keyed by authenticated user sub or remote IP.
+// Health, readiness and Swagger endpoints are exempt so infrastructure probes are never blocked.
+var rateLimitSection = builder.Configuration.GetSection("RateLimit");
+var permitLimit  = rateLimitSection.GetValue<int>("PermitLimit",  100);
+var windowSeconds = rateLimitSection.GetValue<int>("WindowSeconds", 60);
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+    {
+        var path = ctx.Request.Path.Value ?? string.Empty;
+        if (path.StartsWith("/healthz", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/readyz",  StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase))
+            return RateLimitPartition.GetNoLimiter<string>("exempt");
+
+        var key = ctx.User.FindFirstValue("sub")
+            ?? ctx.Connection.RemoteIpAddress?.ToString()
+            ?? "unknown";
+
+        return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit               = permitLimit,
+            Window                    = TimeSpan.FromSeconds(windowSeconds),
+            QueueProcessingOrder      = QueueProcessingOrder.OldestFirst,
+            QueueLimit                = 0
+        });
+    });
+
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter = windowSeconds.ToString();
+        await context.HttpContext.Response.WriteAsync("Too many requests.", token);
+    };
 });
 
 var app = builder.Build();
@@ -83,8 +128,10 @@ app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
+app.MapReverseProxy();
 
 if (app.Environment.IsDevelopment())
     app.MapDevTokenEndpoint(issuer, audience, signingKeyBytes);
