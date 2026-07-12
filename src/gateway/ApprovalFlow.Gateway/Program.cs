@@ -1,11 +1,37 @@
 using System.Text;
+using ApprovalFlow.Gateway;
 using ApprovalFlow.ServiceDefaults.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults("ApprovalFlow.Gateway");
+
+// Extend the Swagger UI registered by ServiceDefaults with JWT Bearer support.
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name         = "Authorization",
+        Type         = SecuritySchemeType.Http,
+        Scheme       = "bearer",
+        BearerFormat = "JWT",
+        In           = ParameterLocation.Header,
+        Description  = "Paste a JWT token. In Development, use POST /dev/token to generate one."
+    });
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 builder.Services.AddControllers();
 builder.Services.AddDaprClient();
@@ -56,6 +82,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+if (app.Environment.IsDevelopment())
+    app.MapDevTokenEndpoint(issuer, audience, signingKeyBytes);
 
 app.Run();
 
