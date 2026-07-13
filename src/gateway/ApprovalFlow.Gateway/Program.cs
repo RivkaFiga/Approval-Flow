@@ -77,11 +77,6 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Authenticated", p => p.RequireAuthenticatedUser());
 });
 
-// YARP — routes the /api/status passthrough directly to the notification service,
-// bypassing Dapr for this simple read-only proxy.
-builder.Services.AddReverseProxy()
-    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
-
 // Rate limiting — global fixed-window keyed by authenticated user sub or remote IP.
 // Health, readiness and Swagger endpoints are exempt so infrastructure probes are never blocked.
 var rateLimitSection = builder.Configuration.GetSection("RateLimit");
@@ -131,7 +126,6 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapControllers();
-app.MapReverseProxy();
 
 if (app.Environment.IsDevelopment())
     app.MapDevTokenEndpoint(issuer, audience, signingKeyBytes);
