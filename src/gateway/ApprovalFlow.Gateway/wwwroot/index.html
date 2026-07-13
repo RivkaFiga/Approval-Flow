@@ -8,9 +8,23 @@
   :root {
     color-scheme: light dark;
     --border: #d0d0d8;
-    --muted: #666;
+    --muted: #555;
     --accent: #2952cc;
-    --bg-soft: #f4f5f8;
+    --bg-soft: #e8e9ed;
+    --bg-body: #ffffff;
+    --bg-section: #fafafa;
+    --text: #111;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --border: #3c3c4a;
+      --muted: #a0a0b8;
+      --accent: #6b8ef0;
+      --bg-soft: #2a2a36;
+      --bg-body: #111118;
+      --bg-section: #1a1a24;
+      --text: #e8e8f0;
+    }
   }
   * { box-sizing: border-box; }
   body {
@@ -19,6 +33,8 @@
     margin: 2rem auto;
     padding: 0 1rem;
     line-height: 1.4;
+    background: var(--bg-body);
+    color: var(--text);
   }
   h1 { margin-bottom: 0.25rem; }
   .subtitle { color: var(--muted); margin-top: 0; }
@@ -27,6 +43,7 @@
     border-radius: 8px;
     padding: 1rem 1.25rem;
     margin-bottom: 1.25rem;
+    background: var(--bg-section);
   }
   h2 { margin-top: 0; font-size: 1.05rem; }
   .field { margin-bottom: 0.75rem; }
@@ -39,8 +56,8 @@
     border: 1px solid var(--border);
     border-radius: 4px;
     font-size: 0.95rem;
-    background: transparent;
-    color: inherit;
+    background: var(--bg-body);
+    color: var(--text);
   }
   input[type="checkbox"] { width: auto; }
   .checkbox-field { display: flex; align-items: center; gap: 0.4rem; }
@@ -57,24 +74,28 @@
   }
   button:disabled { opacity: 0.6; cursor: default; }
   .error {
-    color: #b3261e;
+    color: #c0392b;
     background: #fdecea;
     border: 1px solid #f3c2bd;
     border-radius: 4px;
     padding: 0.5rem 0.75rem;
     margin-top: 0.75rem;
   }
-  dl { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 0.75rem; margin: 0; }
+  @media (prefers-color-scheme: dark) {
+    .error { color: #f28b82; background: #3b1a19; border-color: #7a3532; }
+  }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 0.75rem; margin: 0.75rem 0 0; }
   dt { color: var(--muted); }
-  dd { margin: 0; font-weight: 600; }
+  dd { margin: 0; font-weight: 600; color: var(--text); }
   .badge {
     display: inline-block;
     padding: 0.15rem 0.55rem;
     border-radius: 999px;
     background: var(--bg-soft);
+    color: var(--text);
     font-weight: 600;
   }
-  code { background: var(--bg-soft); padding: 0.1rem 0.4rem; border-radius: 4px; }
+  code { background: var(--bg-soft); color: var(--text); padding: 0.1rem 0.4rem; border-radius: 4px; }
 </style>
 </head>
 <body>
@@ -181,14 +202,37 @@
     </form>
   </section>
 
+  <section id="lookup-section">
+    <h2>2. Check status by Tracking ID</h2>
+    <div class="row">
+      <div class="field" style="flex: 3;">
+        <label for="lookup-id">Tracking ID</label>
+        <input id="lookup-id" placeholder="e.g. AF-20260713-abc123">
+      </div>
+      <div class="field" style="align-self: flex-end; flex: 0 0 auto;">
+        <button id="lookup-button" type="button">Check status</button>
+      </div>
+    </div>
+    <p id="lookup-error" class="error" hidden></p>
+    <div id="lookup-result" hidden>
+      <dl>
+        <dt>Status</dt><dd><span class="badge" id="lookup-status"></span></dd>
+        <dt>Route</dt><dd id="lookup-route"></dd>
+        <dt>Reason</dt><dd id="lookup-reason"></dd>
+        <dt>Amount (USD)</dt><dd id="lookup-amount"></dd>
+        <dt>Payment outcome</dt><dd id="lookup-payment"></dd>
+      </dl>
+    </div>
+  </section>
+
   <section id="status-section" hidden>
-    <h2>2. Current status</h2>
+    <h2>3. Current status</h2>
     <p>Tracking ID: <code id="tracking-id"></code></p>
     <p>Status: <span class="badge" id="current-status">&mdash;</span></p>
   </section>
 
   <section id="decision-section" hidden>
-    <h2>3. Final decision</h2>
+    <h2>4. Final decision</h2>
     <dl>
       <dt>Route</dt><dd id="decision-route"></dd>
       <dt>Reason</dt><dd id="decision-reason"></dd>
@@ -249,6 +293,16 @@
 
   function hideError() {
     $('submit-error').hidden = true;
+  }
+
+  function showLookupError(message) {
+    const el = $('lookup-error');
+    el.textContent = message;
+    el.hidden = false;
+  }
+
+  function hideLookupError() {
+    $('lookup-error').hidden = true;
   }
 
   function recomputeTotal() {
@@ -369,6 +423,39 @@
       showError(err.message);
     } finally {
       button.disabled = false;
+    }
+  });
+
+  $('lookup-button').addEventListener('click', async () => {
+    const trackingId = $('lookup-id').value.trim();
+    if (!trackingId) {
+      showLookupError('Please enter a tracking ID.');
+      return;
+    }
+    hideLookupError();
+    $('lookup-result').hidden = true;
+    $('lookup-button').disabled = true;
+
+    try {
+      const token = await ensureToken('ui-user');
+      const res = await fetch(`/api/status/${encodeURIComponent(trackingId)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const problem = await res.json().catch(() => null);
+        throw new Error(describeError(res.status, problem));
+      }
+      const status = await res.json();
+      $('lookup-status').textContent = LIFECYCLE_STATUS[status.status] ?? `Unknown (${status.status})`;
+      $('lookup-route').textContent = status.route != null ? ROUTE[status.route] : '—';
+      $('lookup-reason').textContent = status.reason || '—';
+      $('lookup-amount').textContent = status.amountUsd != null ? status.amountUsd : '—';
+      $('lookup-payment').textContent = status.paymentOutcome != null ? PAYMENT_OUTCOME[status.paymentOutcome] : '—';
+      $('lookup-result').hidden = false;
+    } catch (err) {
+      showLookupError(err.message);
+    } finally {
+      $('lookup-button').disabled = false;
     }
   });
 
