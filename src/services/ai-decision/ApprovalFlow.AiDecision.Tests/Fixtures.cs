@@ -30,14 +30,15 @@ internal static class Fixtures
         string? notes = null,
         string currency = "USD",
         IReadOnlyList<LineItem>? lineItems = null,
-        decimal tax = 0m)
+        decimal tax = 0m,
+        bool vendorKnown = true)
     {
         var items = lineItems ?? new[] { new LineItem { Description = "Meal", Quantity = 1, UnitPrice = total - tax } };
         return new Invoice
         {
             InvoiceNumber = "NW-INV-TEST",
             Vendor = vendor,
-            VendorKnown = true,
+            VendorKnown = vendorKnown,
             Submitter = "user@northwind.example",
             Department = "engineering-2026Q2",
             Category = ExpenseCategory.Meals,

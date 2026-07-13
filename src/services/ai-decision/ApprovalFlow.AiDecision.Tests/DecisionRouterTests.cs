@@ -109,7 +109,7 @@ public class DecisionRouterTests
     [Fact]
     public void Unknown_vendor_forces_human_review_below_ceiling()
     {
-        var invoice = Fixtures.Meals(60m, attendees: 2, vendor: "Fly-by-Night Cafe");
+        var invoice = Fixtures.Meals(60m, attendees: 2, vendor: "Fly-by-Night Cafe", vendorKnown: false);
         var policy = Fixtures.DefaultPolicy();
         var pre = PreCheckEvaluator.Evaluate(invoice, policy);
         var cat = CategoryRulesEvaluator.Evaluate(invoice, pre.AmountUsd);
