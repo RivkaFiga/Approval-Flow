@@ -19,6 +19,7 @@ public static class DependencyInjection
                 npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "notification")));
 
         services.AddScoped<ISubmissionStatusRepository, SubmissionStatusRepository>();
+        services.AddScoped<IDashboardRepository, DashboardRepository>();
 
         services.AddScoped<HandleInvoiceSubmittedService>();
         services.AddScoped<HandleDecisionMadeService>();
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<HandleItemFinalizedService>();
         services.AddScoped<HandlePaymentCompletedService>();
         services.AddScoped<GetSubmissionStatusService>();
+        services.AddScoped<GetDashboardSummaryService>();
 
         return services;
     }

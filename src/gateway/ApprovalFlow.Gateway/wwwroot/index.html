@@ -225,6 +225,20 @@
     </div>
   </section>
 
+  <section id="dashboard-section">
+    <h2>Controller dashboard</h2>
+    <button id="dashboard-button" type="button">Refresh</button>
+    <p id="dashboard-error" class="error" hidden></p>
+    <dl id="dashboard-result" hidden>
+      <dt>Total processed</dt><dd id="dash-total"></dd>
+      <dt>Auto-approved</dt><dd id="dash-auto-count"></dd>
+      <dt>Human review</dt><dd id="dash-human-count"></dd>
+      <dt>Escalation rate</dt><dd id="dash-escalation"></dd>
+      <dt>Auto-approved amount (USD)</dt><dd id="dash-auto-amount"></dd>
+      <dt>Human-approved amount (USD)</dt><dd id="dash-human-amount"></dd>
+    </dl>
+  </section>
+
   <section id="status-section" hidden>
     <h2>3. Current status</h2>
     <p>Tracking ID: <code id="tracking-id"></code></p>
@@ -460,6 +474,46 @@
   });
 
   initDefaults();
+
+  $('dashboard-button').addEventListener('click', async () => {
+    $('dashboard-error').hidden = true;
+    $('dashboard-result').hidden = true;
+    $('dashboard-button').disabled = true;
+
+    try {
+      // Dashboard is Admin-policy; request an admin token.
+      if (!bearerToken) {
+        const res = await fetch('/dev/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sub: 'controller', roles: ['admin'] })
+        });
+        if (!res.ok) throw new Error('Could not obtain admin token from /dev/token.');
+        bearerToken = (await res.json()).token;
+      }
+
+      const res = await fetch('/api/dashboard/summary', {
+        headers: { 'Authorization': `Bearer ${bearerToken}` }
+      });
+      if (!res.ok) {
+        const problem = await res.json().catch(() => null);
+        throw new Error(describeError(res.status, problem));
+      }
+      const d = await res.json();
+      $('dash-total').textContent = d.totalProcessed;
+      $('dash-auto-count').textContent = d.autoApprovedCount;
+      $('dash-human-count').textContent = d.humanApprovalCount;
+      $('dash-escalation').textContent = (d.escalationRate * 100).toFixed(1) + '%';
+      $('dash-auto-amount').textContent = d.autoApprovedAmountUsd != null ? '$' + Number(d.autoApprovedAmountUsd).toFixed(2) : '—';
+      $('dash-human-amount').textContent = d.humanApprovedAmountUsd != null ? '$' + Number(d.humanApprovedAmountUsd).toFixed(2) : '—';
+      $('dashboard-result').hidden = false;
+    } catch (err) {
+      $('dashboard-error').textContent = err.message;
+      $('dashboard-error').hidden = false;
+    } finally {
+      $('dashboard-button').disabled = false;
+    }
+  });
 })();
 </script>
 </body>
