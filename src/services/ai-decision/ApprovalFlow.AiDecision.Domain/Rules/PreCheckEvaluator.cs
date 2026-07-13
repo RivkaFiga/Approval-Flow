@@ -65,6 +65,6 @@ public static class PreCheckEvaluator
         if (policy.KnownVendors.Any(v => string.Equals(v, invoice.Vendor, StringComparison.OrdinalIgnoreCase)))
             return true;
 
-        return invoice.VendorKnown && policy.KnownVendors.Count == 0;
+        return invoice.VendorKnown || policy.KnownVendors.Count == 0;
     }
 }

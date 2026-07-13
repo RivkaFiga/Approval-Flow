@@ -55,7 +55,7 @@ public class PreCheckEvaluatorTests
     [Fact]
     public void Unknown_vendor_triggers_global_vendor()
     {
-        var invoice = Fixtures.Meals(50m, attendees: 1, vendor: "Fly-by-Night Cafe");
+        var invoice = Fixtures.Meals(50m, attendees: 1, vendor: "Fly-by-Night Cafe", vendorKnown: false);
 
         var result = PreCheckEvaluator.Evaluate(invoice, Fixtures.DefaultPolicy());
 
